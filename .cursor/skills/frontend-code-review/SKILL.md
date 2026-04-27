@@ -98,9 +98,9 @@ description: >-
 
 **严重问题**典型包含：XSS/泄露密钥、一定条件下的崩溃、错误的数据写入、与权限/合规明显冲突的实现。
 
-## 与 ArtPro 本仓库的衔接
+## 与 丝育教育 / ArtPro 本仓库的衔接
 
-- 本仓库前端为 **Next.js App Router**（`apps/web`），审查时核对 [`artpro-yikao`](../artpro-yikao/SKILL.md) 中的 API 与路由约定，避免在客户端暴露不当的数据获取方式。
+- 本仓库前端为 **Next.js App Router**（`apps/web`），审查时核对 [`artpro-yikao`](../artpro-yikao/SKILL.md) 与 [`docs/`](../../../docs/) 中 API/PRD 约定，避免在客户端暴露不当的数据获取方式。
 - 默认可在 `apps/web` 执行 `npm run lint` 作为规范检查输入之一。
 
 ## 反模式

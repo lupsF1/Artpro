@@ -27,6 +27,13 @@ if _test_db.exists():
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./data/pytest.db"
 os.environ["DATABASE_URL_SYNC"] = "sqlite:///./data/pytest.db"
 
+# 管理端 JWT 与测密码 testpass123（见 apps/api/tests/test_v1.py）
+os.environ["ADMIN_JWT_SECRET"] = "0" * 32
+os.environ["ADMIN_USERNAME"] = "admin"
+os.environ["ADMIN_PASSWORD_HASH"] = (
+    "$2b$12$8p6z0uFObfvaQ9h.Tkg0IO/CJT7GgTGtK/lUDKh3tId4c4KQiH13S"
+)
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _init_schema() -> Generator[None, None, None]:

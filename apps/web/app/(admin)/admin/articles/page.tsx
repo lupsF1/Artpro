@@ -1,0 +1,88 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { adminFetch } from "@/lib/adminApi";
+import { useToast } from "@/components/ToastProvider";
+
+type Item = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  published_at: string | null;
+  updated_at: string;
+};
+
+type List = { items: Item[]; meta: { page: number; pageSize: number; total: number } };
+
+export default function AdminArticlesPage() {
+  const toast = useToast();
+  const [data, setData] = useState<List | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setErr(null);
+    try {
+      const d = await adminFetch<List>("/api/v1/admin/articles?page=1&pageSize=100");
+      setData(d);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "加载失败";
+      setErr(msg);
+      toast.error(msg);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-serif text-2xl font-semibold text-stone-900">文章</h1>
+          <p className="mt-1 text-sm text-stone-500">
+            设置发布时间后，将在官网资讯列表展示；留空为草稿。
+          </p>
+        </div>
+        <Link
+          href="/admin/articles/new"
+          className="inline-flex w-fit items-center justify-center rounded-xl bg-stone-800 px-4 py-2 text-sm font-medium text-stone-50 transition hover:bg-stone-700"
+        >
+          新建文章
+        </Link>
+      </div>
+      {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
+      <ul className="mt-6 space-y-2">
+        {data?.items.length === 0 && (
+          <li className="rounded-2xl border border-dashed border-stone-300/80 px-6 py-10 text-center text-sm text-stone-500">
+            暂无文章
+          </li>
+        )}
+        {data?.items.map((a) => (
+          <li
+            key={a.id}
+            className="flex items-center justify-between gap-3 rounded-2xl border border-stone-200/80 bg-white/80 px-4 py-3"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-medium text-stone-900">{a.title}</p>
+              <p className="text-xs text-stone-500">
+                /{a.slug} ·
+                {a.published_at
+                  ? ` 发布 ${a.published_at.replace("T", " ").slice(0, 16)}`
+                  : " 草稿"}
+              </p>
+            </div>
+            <Link
+              href={`/admin/articles/${a.id}`}
+              className="shrink-0 text-sm text-stone-600 underline underline-offset-2 hover:text-stone-900"
+            >
+              编辑
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

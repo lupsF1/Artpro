@@ -19,6 +19,7 @@ async def create_lead(data: LeadCreate, db: SessionDep) -> dict | JSONResponse:
         wechat=(data.wechat or "").strip() or None,
         message=(data.message or "").strip() or None,
         source=(data.source or "web").strip() or "web",
+        status="new",
     )
     try:
         db.add(lead)

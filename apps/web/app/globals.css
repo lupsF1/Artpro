@@ -2,12 +2,408 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 高级感落地页：暖灰、衬线标题、低对比网格（参考 2024–2025 极简/编辑风趋势） */
 :root {
-  --foreground: #0a0a0a;
-  --background: #fafafa;
+  --fg: 28 25 23;
+  --fg-muted: 87 83 78;
+  --fg-subtle: 120 113 108;
+  --surface: 250 250 249;
+  --surface-elevated: 255 255 255;
+  --border: 231 229 228;
+  --accent: 68 64 60;
+  --accent-hover: 41 37 36;
+  --ring: 120 113 108 / 0.25;
+  --grid-line: 0 0 0;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
+@layer base {
+  /* 为纵向滚动条预留槽位，避免各页高度不同导致出现/消失滚动条时主列横向抖动 */
+  html {
+    @apply scroll-smooth;
+    scrollbar-gutter: stable;
+  }
+  body {
+    color: rgb(var(--fg) / 0.92);
+    /* 实色在 html 上作兜底，主视觉由 .site-canvas 承担 */
+    background: transparent;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    /* 宽装饰图意外超出时不再撑出整页水平滚动，减少切换页时「抖一下」的观感 */
+    overflow-x: clip;
+  }
+  ::selection {
+    @apply bg-stone-200/80 text-stone-900;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [class*="animate-fade-"] {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+    .site-canvas-blooms,
+    .site-canvas-diagonal {
+      animation: none !important;
+    }
+    .mo-line-v,
+    .mo-hairline-beam,
+    .mo-corner,
+    .mu-music-drift,
+    .mu-music-float,
+    .mu-music-sway,
+    .mu-staff-pan,
+    .mu-staff-drift,
+    .mu-note-pulse,
+    .mu-wave-anim,
+    .mu-wave-path,
+    .mu-wave-path-delay,
+    .mu-orbit-weak {
+      animation: none !important;
+      opacity: 0.35 !important;
+      transform: none !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* 极淡编辑网格，常见于高端产品站 */
+  .bg-grid-fine {
+    background-image: linear-gradient(
+        to right,
+        rgb(var(--grid-line) / 0.04) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, rgb(var(--grid-line) / 0.04) 1px, transparent 1px);
+    background-size: 72px 72px;
+  }
+  .bg-gradient-radial-soft {
+    background: radial-gradient(
+      ellipse 80% 50% at 50% -20%,
+      rgb(255 255 255 / 0.9),
+      transparent
+    );
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* 主内容区侧：与右侧音乐区形成对比，多径向叠层，避免平涂单调 */
+  .bg-hero-mesh {
+    background:
+      radial-gradient(ellipse 90% 75% at 0% 14%, rgb(255 252 245 / 0.72) 0%, transparent 55%),
+      radial-gradient(ellipse 55% 50% at 18% 92%, rgb(244 244 242 / 0.55) 0%, transparent 48%),
+      radial-gradient(ellipse 45% 40% at 55% 35%, rgb(255 255 255 / 0.5) 0%, transparent 42%);
+  }
+
+  .bg-hero-ambient {
+    background:
+      radial-gradient(ellipse 85% 70% at 0% 12%, rgb(255 250 240 / 0.78) 0%, transparent 58%),
+      radial-gradient(ellipse 50% 45% at 20% 95%, rgb(240 230 220 / 0.45) 0%, transparent 50%),
+      radial-gradient(ellipse 55% 40% at 60% 30%, rgb(255 255 255 / 0.5) 0%, transparent 45%);
+  }
+
+  /* 简约线条动效：竖线呼吸 + 横线光带 + 角框微光 */
+  .mo-line-v {
+    @apply block w-px shrink-0 bg-gradient-to-b from-stone-300/0 via-stone-400/40 to-stone-300/0;
+    animation: mo-line-breathe 5.5s ease-in-out infinite;
+  }
+  .mo-line-v-delay-1 {
+    animation-delay: 0.45s;
+  }
+  .mo-line-v-delay-2 {
+    animation-delay: 0.9s;
+  }
+
+  .mo-hairline-beam {
+    animation: mo-hairline-sweep 9s ease-in-out infinite;
+  }
+
+  .mo-corner {
+    animation: mo-corner-pulse 6s ease-in-out infinite;
+  }
+  .mo-corner-tr {
+    animation-delay: 1.2s;
+  }
+  .mo-corner-br {
+    animation-delay: 2.4s;
+  }
+  .mo-corner-bl {
+    animation-delay: 3.6s;
+  }
+}
+
+/* —— 全站背景画布（固定层，由 SiteBackground 挂载）—— */
+.site-canvas {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.site-canvas-gradients {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      172deg,
+      rgb(252 250 247) 0%,
+      rgb(245 241 235 / 0.98) 38%,
+      rgb(250 247 242) 64%,
+      rgb(240 234 225 / 0.95) 100%
+    ),
+    linear-gradient(115deg, transparent 0%, rgb(255 250 240 / 0.45) 45%, transparent 78%);
+}
+
+.site-canvas-blooms {
+  position: absolute;
+  inset: -8%;
+  background:
+    radial-gradient(ellipse 75% 60% at 4% 8%, rgb(255 252 245 / 0.98) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 50% at 95% 6%, rgb(255 255 255 / 0.85) 0%, transparent 52%),
+    radial-gradient(ellipse 50% 45% at 0% 92%, rgb(255 236 210 / 0.4) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 100% 88%, rgb(255 250 240 / 0.55) 0%, transparent 58%),
+    radial-gradient(ellipse 45% 40% at 48% 48%, rgb(255 255 255 / 0.28) 0%, transparent 65%),
+    radial-gradient(ellipse 35% 30% at 22% 38%, rgb(255 255 255 / 0.2) 0%, transparent 55%);
+  animation: site-bloom-drift 50s ease-in-out infinite alternate;
+}
+
+.site-canvas-diagonal {
+  position: absolute;
+  inset: -20%;
+  background: repeating-linear-gradient(
+    115deg,
+    transparent 0,
+    transparent 36px,
+    rgb(0 0 0 / 0.02) 36px,
+    rgb(0 0 0 / 0.02) 38px
+  );
+  background-size: 100px 100px;
+  mix-blend-mode: multiply;
+  opacity: 0.45;
+  animation: site-diagonal-creep 100s linear infinite;
+}
+
+.site-canvas-pattern {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgb(var(--grid-line) / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--grid-line) / 0.045) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 40%, black 0%, transparent 70%);
+  opacity: 0.7;
+}
+
+.site-canvas-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.055;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  mix-blend-mode: overlay;
+}
+
+@keyframes site-bloom-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+    filter: brightness(1);
+  }
+  100% {
+    transform: translate(1.2%, 0.8%) scale(1.015);
+    filter: brightness(1.02);
+  }
+}
+
+@keyframes site-diagonal-creep {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(24px, 12px);
+  }
+}
+
+@keyframes mo-line-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scaleY(0.88);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes mo-hairline-sweep {
+  0% {
+    transform: translateX(-20%);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(420%);
+    opacity: 0;
+  }
+}
+
+@keyframes mo-corner-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    border-color: rgb(214 211 209 / 0.45);
+  }
+  50% {
+    opacity: 0.85;
+    border-color: rgb(168 162 158 / 0.55);
+  }
+}
+
+/* 版式装饰层动效（与 ArtAtmosphere 共用类名；浅灰/暖琥珀调） */
+.mu-music-drift {
+  animation: mu-music-drift 28s ease-in-out infinite;
+}
+.mu-music-float {
+  animation: mu-music-float 18s ease-in-out infinite;
+}
+.mu-music-delay-1 {
+  animation-delay: -4s;
+}
+.mu-music-delay-2 {
+  animation-delay: -9s;
+}
+.mu-music-sway {
+  animation: mu-music-sway 14s ease-in-out infinite;
+}
+.mu-staff-pan {
+  animation: mu-staff-pan 32s linear infinite;
+}
+.mu-staff-drift {
+  animation: mu-staff-drift 48s linear infinite;
+}
+.mu-note-pulse {
+  animation: mu-note-pulse 3.5s ease-in-out infinite;
+}
+.mu-wave-anim {
+  animation: mu-wave-anim 24s ease-in-out infinite;
+}
+.mu-anim-slow.mu-wave-anim {
+  animation: mu-wave-anim 34s ease-in-out infinite;
+}
+.mu-orbit-weak {
+  animation: mu-orbit-weak 38s ease-in-out infinite;
+}
+.mu-wave-path {
+  stroke-dasharray: 40 60;
+  animation: mu-wave-dash 12s linear infinite;
+}
+.mu-wave-path-delay {
+  stroke-dasharray: 30 50;
+  animation: mu-wave-dash 14s linear infinite reverse;
+  animation-delay: -3s;
+}
+
+@keyframes mu-music-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(-1.5deg);
+  }
+  50% {
+    transform: translate(-4px, 8px) rotate(0.5deg);
+  }
+}
+
+@keyframes mu-music-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translateY(-8px) scale(1.03);
+    opacity: 0.95;
+  }
+}
+
+@keyframes mu-music-sway {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes mu-staff-pan {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-80px);
+  }
+}
+
+@keyframes mu-staff-drift {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-120px);
+  }
+}
+
+@keyframes mu-note-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes mu-wave-anim {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4%);
+  }
+}
+
+@keyframes mu-orbit-weak {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(-0.5deg);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate(3px, 2px) rotate(0.5deg);
+    opacity: 0.7;
+  }
+}
+
+@keyframes mu-wave-dash {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -200;
+  }
 }

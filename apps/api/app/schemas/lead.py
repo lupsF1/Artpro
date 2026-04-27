@@ -19,6 +19,7 @@ class LeadOut(BaseModel):
     wechat: str | None
     message: str | None
     source: str | None
+    status: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -26,3 +27,7 @@ class LeadOut(BaseModel):
     @field_serializer("created_at")
     def ser_dt(self, v: datetime) -> str:
         return v.isoformat()
+
+
+class LeadPatch(BaseModel):
+    status: str = Field(min_length=1, max_length=32, description="跟进状态")

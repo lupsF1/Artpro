@@ -15,6 +15,7 @@ alwaysApply: true
 | [`frontend-automated-testing`](../skills/frontend-automated-testing/SKILL.md) | 生成/补测试、单元、组件、E2E、Vitest/Playwright |
 | [`frontend-code-review`](../skills/frontend-code-review/SKILL.md) | 代码审查、review、PR/MR、检查前端改动 |
 | [`frontend-performance-optimization`](../skills/frontend-performance-optimization/SKILL.md) | 性能、首屏、包体积、Web Vitals、LCP/CLS |
+| [`frontend-beautify`](../skills/frontend-beautify/SKILL.md) | 前端美化、精修视觉、设计参考、风格与版式整体一致 |
 
 说明：项目 Skills 与 `~/.cursor/skills-cursor/` 内置技能可同时适用；**本仓库业务与栈以 `artpro-yikao` + `docs/` 为准**。
 

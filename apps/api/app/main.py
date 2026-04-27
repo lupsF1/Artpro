@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app import __version__
 from app.api.v1.router import api_router
 from app.config import settings
+from app.core.api_errors import APIError
 from app.core.errors import E_VALIDATION
 from app.core.responses import err
 from app.db import check_db, engine
@@ -50,6 +51,11 @@ async def validation_handler(_: Request, exc: RequestValidationError) -> JSONRes
             data={"errors": exc.errors()},
         ),
     )
+
+
+@app.exception_handler(APIError)
+async def api_error_handler(_: Request, exc: APIError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content=exc.content)
 
 
 @app.get("/health/live", tags=["health"])

@@ -1,13 +1,13 @@
 ---
 name: artpro-yikao
 description: >-
-  Develops and extends the ArtPro 艺考官网 monorepo (FastAPI + Next.js) per
+  Develops and extends the 丝育教育/ArtPro 官网 monorepo (FastAPI + Next.js) per
   project docs: REST /api/v1 envelope, apps/api and apps/web layout, SQLite/Postgres,
   Alembic, and PRD-reserved routes. Use when editing ArtPro, 艺考官网, apps/api,
   apps/web, leads/site/articles, or when the user asks about this repository stack.
 ---
 
-# ArtPro 艺考官网（仓库技能）
+# 丝育教育官网 / ArtPro 仓库（技能）
 
 ## 仓库是什么
 
@@ -22,6 +22,7 @@ description: >-
 | [`frontend-automated-testing`](../frontend-automated-testing/SKILL.md) | 补/写前端测试（单元、组件、E2E），与 `apps/web` 现用测试栈对齐 |
 | [`frontend-code-review`](../frontend-code-review/SKILL.md) | 审查 `apps/web` 改动、PR、或用户要「检查代码」 |
 | [`frontend-performance-optimization`](../frontend-performance-optimization/SKILL.md) | 首屏、包体积、Web Vitals、Next 构建与资源策略 |
+| [`frontend-beautify`](../frontend-beautify/SKILL.md) | 网页检索设计参考、精修视觉、整站/整页风格与间距一致 |
 
 总览（含 Rules / Agents）见 [`cursor-workspace-index.mdc`](../../rules/cursor-workspace-index.mdc)。
 

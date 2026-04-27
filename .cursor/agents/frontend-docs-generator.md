@@ -56,6 +56,6 @@ description: >-
 
 ## 与本仓库的协作
 
-- 主应用：ArtPro 艺考官网；文档与 PRD 对齐时引用 [`docs/`](../../docs/) 与 [`README.md`](../../README.md)。
+- 主应用：丝育教育官网（ArtPro 仓库）；文档与 PRD 对齐时引用 [`docs/`](../../docs/) 与 [`README.md`](../../README.md)。
 - 全库资源索引： [`.cursor/rules/cursor-workspace-index.mdc`](../rules/cursor-workspace-index.mdc)（Skills / Rules / Agents 一览）。
 - 堆栈与 API 约定：优先 [`artpro-yikao`](../skills/artpro-yikao/SKILL.md)。

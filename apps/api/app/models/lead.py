@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String, Text, Uuid
+from sqlalchemy import DateTime, String, Text, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -24,6 +24,13 @@ class Lead(Base):
     wechat: Mapped[str | None] = mapped_column(String(64), nullable=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # 管理端跟进：new / contacted / done 等
+    status: Mapped[str] = mapped_column(
+        String(32),
+        default="new",
+        nullable=False,
+        server_default=text("'new'"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utcnow,

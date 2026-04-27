@@ -9,6 +9,8 @@ pydantic>=2.0.0
 pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 email-validator>=2.0.0
+pyjwt[crypto]>=2.8.0
+bcrypt>=4.0.0
 # sync driver for Alembic migrations
 psycopg[binary]>=3.1.0
 
