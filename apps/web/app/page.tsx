@@ -29,8 +29,8 @@ export default async function HomePage() {
   try {
     const list = await fetchArticleList({ page: 1, pageSize: 3 });
     if (list.code === 0 && list.data?.items?.length) {
-      articles = list.data.items.map((a) => ({
-        id: String(a.id ?? ""),
+      articles = list.data.items.map((a, index) => ({
+        id: String(a.id ?? `idx-${index}`),
         title: a.title ?? "未命名",
       }));
     }
@@ -151,9 +151,9 @@ export default async function HomePage() {
               </p>
             ) : (
               <ul className="mt-6 space-y-3">
-                {articles.map((a) => (
+                {articles.map((a, i) => (
                   <li
-                    key={a.id}
+                    key={a.id || `article-row-${i}`}
                     className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-800"
                   >
                     {a.title}
@@ -166,7 +166,12 @@ export default async function HomePage() {
 
         {/* 咨询留资 */}
         <section id="contact" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-          <h2 className="text-xl font-semibold text-neutral-900">预约咨询</h2>
+          <h2
+            id="contact-heading"
+            className="text-xl font-semibold text-neutral-900"
+          >
+            预约咨询
+          </h2>
           <p className="mt-1 text-sm text-neutral-500">
             留下联系方式，我们会尽快与您沟通试听与课程安排。
           </p>

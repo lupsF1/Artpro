@@ -3,6 +3,16 @@
 import { useState } from "react";
 import { getApiBase } from "@/lib/api";
 
+type LeadResponse = { code: number; message: string; data?: unknown };
+
+function parseLeadJson(text: string): LeadResponse {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error("EMPTY_BODY");
+  }
+  return JSON.parse(trimmed) as LeadResponse;
+}
+
 export function LeadForm() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -20,7 +30,15 @@ export function LeadForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, phone, message, source: "web" }),
       });
-      const j = (await r.json()) as { code: number; message: string };
+      const text = await r.text();
+      let j: LeadResponse;
+      try {
+        j = parseLeadJson(text);
+      } catch {
+        setStatus("err");
+        setErrMsg("服务器返回异常，请稍后再试");
+        return;
+      }
       if (!r.ok || j.code !== 0) {
         setStatus("err");
         setErrMsg(j.message || "提交失败");
@@ -38,17 +56,20 @@ export function LeadForm() {
 
   return (
     <form
+      id="contact-form"
+      aria-labelledby="contact-heading"
       onSubmit={onSubmit}
       className="mt-6 max-w-md space-y-3 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm"
     >
-      <h2 className="text-lg font-medium">预约咨询</h2>
       <div>
-        <label className="text-sm text-neutral-600" htmlFor="name">
+        <label className="text-sm text-neutral-600" htmlFor="lead-name">
           姓名
         </label>
         <input
-          id="name"
+          id="lead-name"
           className="mt-1 w-full rounded border border-neutral-300 px-2 py-1.5"
+          name="name"
+          autoComplete="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -57,12 +78,16 @@ export function LeadForm() {
         />
       </div>
       <div>
-        <label className="text-sm text-neutral-600" htmlFor="phone">
+        <label className="text-sm text-neutral-600" htmlFor="lead-phone">
           手机
         </label>
         <input
-          id="phone"
+          id="lead-phone"
           className="mt-1 w-full rounded border border-neutral-300 px-2 py-1.5"
+          name="phone"
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           required
@@ -71,12 +96,13 @@ export function LeadForm() {
         />
       </div>
       <div>
-        <label className="text-sm text-neutral-600" htmlFor="message">
+        <label className="text-sm text-neutral-600" htmlFor="lead-message">
           留言
         </label>
         <textarea
-          id="message"
+          id="lead-message"
           className="mt-1 w-full rounded border border-neutral-300 px-2 py-1.5"
+          name="message"
           rows={3}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -89,9 +115,15 @@ export function LeadForm() {
         提交
       </button>
       {status === "ok" && (
-        <p className="text-sm text-green-700">已提交，我们会尽快联系您。</p>
+        <p className="text-sm text-green-700" role="status">
+          已提交，我们会尽快联系您。
+        </p>
       )}
-      {status === "err" && <p className="text-sm text-red-600">{errMsg}</p>}
+      {status === "err" && (
+        <p className="text-sm text-red-600" role="alert">
+          {errMsg}
+        </p>
+      )}
     </form>
   );
 }
