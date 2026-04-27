@@ -1,0 +1,55 @@
+---
+description: 前端通用编码规范（风格、TypeScript、React/Vue、安全、工程化）
+globs: "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,css,scss,mdx}"
+alwaysApply: false
+---
+
+# 前端项目通用编码规范
+
+> 测试/审查/性能等专项流程见全库索引：[`cursor-workspace-index.mdc`](./cursor-workspace-index.mdc)（`alwaysApply`）。
+
+
+## 1. 代码风格与格式
+
+- 严格遵循项目 ESLint + Prettier 配置，提交前确保通过 lint 校验。
+- 命名：变量/函数用 **camelCase**；组件/类型/接口用 **PascalCase**；常量用 **UPPER_SNAKE_CASE**。
+- 导出的函数与复杂函数须写 **JSDoc**；复杂逻辑须配简短行内注释说明意图与边界条件。
+- 禁止 `var`，统一 `const` / `let`，默认优先 `const`。
+- **import 顺序**：第三方包 → 内部/别名模块 → 样式与资源；同组内按字母序。
+
+## 2. TypeScript
+
+- 禁止滥用 **`any`**；能推断则靠推断，否则写明确类型；不确定时用 **`unknown` + 类型守卫**。
+- 组件 **Props** 必须定义为 `type` 或 `interface`；**对外导出的组件**应导出/暴露 Props 类型（如 `export type XxxProps`）。
+- 优先 **类型守卫** 与**窄化**，必要时用断言；避免无依据的强转。
+- 枚举优先 **`const enum`**，减少运行时代码与重复（若与构建/拆包策略冲突再个案调整）。
+
+## 3. React
+
+- 只使用**函数组件 + Hooks**，不用类组件。
+- 复杂状态与副作用应**抽自定义 Hooks**，避免在单文件里堆长业务逻辑。
+- `useEffect` 依赖数组须**真实反映依赖**；避免无意义的空 `[]` 或漏依赖；禁止在 effect 中直接写会触发同 effect 的 state 更新导致死循环（若需要，用 ref 或拆分阶段）。
+- 单组件保持**单一职责**；单文件行数以 **~300 行**为软上限，超出则拆分。
+- 性能：在可证明的收益下使用 `React.memo`、`useMemo`、`useCallback`，避免为优化而优化。
+
+## 4. Vue（若仓库含 Vue 子项目）
+
+- 使用 **`<script setup>`**，不用 Options API。
+- 响应式以 **`ref` / `reactive`** 为主；**`computed` 的返回值类型应可推断或显式标注**。
+- 生命周期用 **组合式 API**（如 `onMounted` / `onUnmounted`）。
+- 复杂逻辑放入 **composables**，不在单组件内写长段业务代码。
+
+## 5. 安全与性能
+
+- 避免**直接操作 DOM**；优先框架 API（`ref`、受控数据等）。
+- 不在源码中**硬编码密钥、Token、内网地址**等；用环境变量与构建时注入（并遵守各框架对 `NEXT_PUBLIC_` 等暴露规则）。
+- 用户可影响的内容须防 **XSS**：使用框架/库的默认转义与安全实践；慎用 `dangerouslySetInnerHTML` / `v-html`。
+- 图片等大资源优先**懒加载**；大文件上传/下载考虑**分片**与进度反馈。
+- 生产环境代码**禁止**随意保留 `console.log`；开发态可用，上线前移除或通过环境/封装控制。
+
+## 6. 工程化
+
+- 新增/升级依赖后**锁文件**（如 `pnpm-lock.yaml` / `package-lock.json` / `yarn.lock`）与 **package.json** 一并提交，保持可复现安装。
+- 异步流程须有**错误处理**：`try/catch`、`async` 路径上的 `.catch()`，或统一错误边界/上报层，避免吞错。
+- **HTTP 请求**经**统一封装**（如 `lib/api`、axios/fetch 实例），避免在业务组件里散落裸 `fetch` / `axios`。
+- **路由**使用框架路由 API（如 Next `Link`/`useRouter`、Vue Router 等），避免随意 **`window.location`** 全页跳转（除非有明确非 SPA 需求）。

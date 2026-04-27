@@ -1,0 +1,36 @@
+---
+description: ArtPro 仓库 Cursor 资源索引（Skills / Rules / Agents）；主代理任务前按需加载
+alwaysApply: true
+---
+
+# Cursor 工作区索引（本仓库）
+
+主代理在下列任务**开始前**，应用 **Read** 打开对应说明并遵循；勿仅依赖对话里是否提及「skill」。
+
+## Skills（`.cursor/skills/`）
+
+| 目录 | 触发场景 |
+|------|------------|
+| [`artpro-yikao`](../skills/artpro-yikao/SKILL.md) | 改 `apps/api`、`apps/web`、艺考 PRD、REST `/api/v1`、联调 |
+| [`frontend-automated-testing`](../skills/frontend-automated-testing/SKILL.md) | 生成/补测试、单元、组件、E2E、Vitest/Playwright |
+| [`frontend-code-review`](../skills/frontend-code-review/SKILL.md) | 代码审查、review、PR/MR、检查前端改动 |
+| [`frontend-performance-optimization`](../skills/frontend-performance-optimization/SKILL.md) | 性能、首屏、包体积、Web Vitals、LCP/CLS |
+
+说明：项目 Skills 与 `~/.cursor/skills-cursor/` 内置技能可同时适用；**本仓库业务与栈以 `artpro-yikao` + `docs/` 为准**。
+
+## Rules（`.cursor/rules/`）
+
+| 文件 | 说明 |
+|------|------|
+| [`frontend-coding-standards.mdc`](./frontend-coding-standards.mdc) | 匹配 `globs` 的前端 TS/TSX 等 |
+| [`frontend-architecture-constraints.mdc`](./frontend-architecture-constraints.mdc) | 微前端/Taro/全局状态等（已采用时） |
+
+## Agents（`.cursor/agents/`）
+
+| 文件 | 委派场景 |
+|------|----------|
+| [`frontend-docs-generator.md`](../agents/frontend-docs-generator.md) | 文档、接口说明、与代码同步的 Markdown |
+| [`frontend-bug-triage.md`](../agents/frontend-bug-triage.md) | 前端 Bug、根因、构建/控制台报错 |
+| [`component-developer.md`](../agents/component-developer.md) | 新组件、封装、组件级测试与文档 |
+
+委派子代理时附上仓库路径与本任务相关文件列表；子代理输出由主代理汇总进 PR/回复。
