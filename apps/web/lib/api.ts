@@ -20,3 +20,24 @@ export async function fetchSiteConfig() {
     icp: string | null;
   }>;
 }
+
+export type ArticleListItem = {
+  id: string;
+  title: string;
+  excerpt?: string | null;
+  publishedAt?: string | null;
+};
+
+export async function fetchArticleList(params: { page?: number; pageSize?: number } = {}) {
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 6;
+  const r = await fetch(
+    `${getApiBase()}/api/v1/articles?page=${page}&pageSize=${pageSize}`,
+    { next: { revalidate: 60 } },
+  );
+  if (!r.ok) throw new Error(`articles: ${r.status}`);
+  return (await r.json()) as Envelope<{
+    items: ArticleListItem[];
+    meta: { page: number; pageSize: number; total: number };
+  }>;
+}

@@ -54,11 +54,12 @@ pip install -r requirements.txt
 pytest -q
 ```
 
-**前端**（静态检查 + 生产构建）：
+**前端**（静态检查 + 单元测试 + 生产构建）：
 
 ```bash
 cd apps/web
 npm run lint
+npm run test
 npm run build
 ```
 
