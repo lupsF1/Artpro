@@ -1,0 +1,2 @@
+在 apps/api 目录下执行:
+  alembic upgrade head

@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: artpro
+      POSTGRES_PASSWORD: artpro
+      POSTGRES_DB: artpro
+    ports:
+      - "5432:5432"
+    volumes:
+      - artpro_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artpro -d artpro"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  artpro_pgdata:
