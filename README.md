@@ -43,6 +43,25 @@ npm run dev
 
 生产构建：在仓库内执行 `cd apps/web && npm run build`。若个别 WSL/容器环境对 `next build` 出现 `Bus error`，可在本机或 CI（Node 20.19+）上构建；`Next.js` 已锁定至含安全修复的 `15.5.7`（见官方安全公告，可按 `npm outdated` 继续升级小版本）。
 
+## 测试
+
+**后端**（独立测试库 `data/pytest.db`，需在 `apps/api` 下执行）：
+
+```bash
+cd apps/api
+source ../../.venv/bin/activate   # 若使用根目录 venv
+pip install -r requirements.txt
+pytest -q
+```
+
+**前端**（静态检查 + 生产构建）：
+
+```bash
+cd apps/web
+npm run lint
+npm run build
+```
+
 ## 目录
 
 | 路径 | 说明 |
