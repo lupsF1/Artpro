@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Pytest
+        run: pytest -q
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/requirements.txt
+
+      - name: Install API deps and start server for SSG fetch
+        working-directory: apps/api
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./data/ci_web.db
+          DATABASE_URL_SYNC: sqlite:///./data/ci_web.db
+          ADMIN_JWT_SECRET: "01234567890123456789012345678901"
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD_HASH: "$2b$12$8p6z0uFObfvaQ9h.Tkg0IO/CJT7GgTGtK/lUDKh3tId4c4KQiH13S"
+          LEADS_RATE_LIMIT: 10000/minute
+        run: |
+          pip install -r requirements.txt
+          mkdir -p data
+          rm -f data/ci_web.db
+          alembic upgrade head
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/health/live >/dev/null; then
+              echo "API ready"
+              break
+            fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8000/health/live || exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Lint, test, build
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
+        run: |
+          npm ci
+          npm run lint
+          npm run test
+          npm run build

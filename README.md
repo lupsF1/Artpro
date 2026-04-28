@@ -1,6 +1,6 @@
 # 丝育教育官网（ArtPro 仓库）
 
-本仓库为 **丝育教育** 艺考类培训官网的 **monorepo**：Python **FastAPI** 提供 `/api/v1` JSON API，**Next.js 15**（App Router + React 19）提供官网前端。技术原则与分阶段见 [docs/艺考官网-开发方案.md](docs/艺考官网-开发方案.md)；产品与接口总览见 [docs/艺考官网-需求说明.md](docs/艺考官网-需求说明.md)。**GitHub 多人协作流程**见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+本仓库为 **丝育教育** 艺考类培训官网的 **monorepo**：Python **FastAPI** 提供 `/api/v1` JSON API，**Next.js 15**（App Router + React 19）提供官网前端。技术原则与分阶段见 [docs/艺考官网-开发方案.md](docs/艺考官网-开发方案.md)；产品与接口总览见 [docs/艺考官网-需求说明.md](docs/艺考官网-需求说明.md)。**生产上线**执行清单见 [docs/艺考官网-上线计划.md](docs/艺考官网-上线计划.md)。**GitHub 多人协作**见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 | 子项目 | 技术栈 | 说明 |
 |--------|--------|------|
@@ -77,7 +77,7 @@ npm run dev
 
 `NEXT_PUBLIC_API_URL` 需指向 API 基址（默认 `http://127.0.0.1:8000`）；后端 CORS 已包含 `http://localhost:3000` 与 `http://127.0.0.1:3000`。
 
-生产：在 `apps/web` 执行 `npm run build` 后 `npm run start`。
+生产：在 `apps/web` 执行 `npm run build` 后 `npm run start`。**构建**时服务端会请求 `NEXT_PUBLIC_API_URL` 拉站点/资讯等数据，请先在本机启动 API（与 `.env.local` 一致），否则静态页生成可能因超时而失败。
 
 ## 已实现接口与前端对关系（与代码一致）
 
@@ -122,6 +122,8 @@ PRD 中其它路径（`banners`、`teachers`、`events` 等）**尚未实现**�
 - `components/LeadForm.tsx`：客户端 `POST` `/api/v1/leads`（`getApiBase()`）
 
 ## 测试
+
+**CI**：向 `main` 的 push / PR 会运行 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)（`apps/api` pytest；`apps/web` lint / test / build；构建前会短时启动 API 供静态页拉取数据）。
 
 **后端**（在 `apps/api` 下，需已安装依赖）：
 

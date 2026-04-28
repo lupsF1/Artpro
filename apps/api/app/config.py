@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     admin_password_hash: str = Field(default="", description="bcrypt 哈希；空则禁止密码登录")
     admin_token_expires_minutes: int = Field(default=480, ge=5, le=10080)
 
+    # 生产可设 API_DOCS_ENABLED=false 关闭 /docs、/redoc、/openapi.json
+    api_docs_enabled: bool = Field(default=True)
+    # 留资接口按 IP 限流（slowapi 语法，如 30/minute）；测试可加大 LEADS_RATE_LIMIT
+    leads_rate_limit: str = Field(default="30/minute")
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors(cls, v: str | list[str]) -> list[str]:

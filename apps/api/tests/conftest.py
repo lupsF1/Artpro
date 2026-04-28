@@ -26,6 +26,8 @@ if _test_db.exists():
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./data/pytest.db"
 os.environ["DATABASE_URL_SYNC"] = "sqlite:///./data/pytest.db"
+# 避免 slowapi 在集成测试中误触限流
+os.environ["LEADS_RATE_LIMIT"] = "10000/minute"
 
 # 管理端 JWT 与测密码 testpass123（见 apps/api/tests/test_v1.py）
 os.environ["ADMIN_JWT_SECRET"] = "0" * 32

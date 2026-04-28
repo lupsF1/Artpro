@@ -5,14 +5,17 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app import __version__
 from app.api.v1.router import api_router
 from app.config import settings
 from app.core.api_errors import APIError
-from app.core.errors import E_VALIDATION
+from app.core.errors import E_RATE_LIMIT, E_VALIDATION
 from app.core.responses import err
 from app.db import check_db, engine
+from app.limiter import limiter
 
 
 @asynccontextmanager
@@ -23,14 +26,21 @@ async def lifespan(_: FastAPI):
     await engine.dispose()
 
 
+_docs = (
+    ("/docs", "/redoc", "/openapi.json")
+    if settings.api_docs_enabled
+    else (None, None, None)
+)
 app = FastAPI(
     title=settings.app_name,
     version=__version__,
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url=_docs[0],
+    redoc_url=_docs[1],
+    openapi_url=_docs[2],
 )
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,6 +66,14 @@ async def validation_handler(_: Request, exc: RequestValidationError) -> JSONRes
 @app.exception_handler(APIError)
 async def api_error_handler(_: Request, exc: APIError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=exc.content)
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content=err(E_RATE_LIMIT, "请求过于频繁，请稍后再试"),
+    )
 
 
 @app.get("/health/live", tags=["health"])

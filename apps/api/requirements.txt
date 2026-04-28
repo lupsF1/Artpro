@@ -1,6 +1,8 @@
 # FastAPI stack (方案 B) — lock major versions in production via pip-compile if needed
 fastapi[standard]>=0.115.0
 uvicorn[standard]>=0.30.0
+slowapi>=0.1.9
+gunicorn>=22.0.0
 sqlalchemy[asyncio]>=2.0.0
 asyncpg>=0.29.0
 aiosqlite>=0.20.0

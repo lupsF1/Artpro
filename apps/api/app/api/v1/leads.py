@@ -1,9 +1,11 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 
+from app.config import settings
 from app.core.errors import E_INTERNAL
 from app.core.responses import ok, err
 from app.deps import SessionDep
+from app.limiter import limiter
 from app.models import Lead
 from app.schemas.lead import LeadCreate, LeadOut
 
@@ -11,8 +13,9 @@ router = APIRouter(tags=["leads"])
 
 
 @router.post("/leads", response_model=None)
-async def create_lead(data: LeadCreate, db: SessionDep) -> dict | JSONResponse:
-    """咨询留资（限流/人机验证在后续中间件中补充）。"""
+@limiter.limit(settings.leads_rate_limit)
+async def create_lead(request: Request, data: LeadCreate, db: SessionDep) -> dict | JSONResponse:
+    """咨询留资；按 IP 限流见配置 `leads_rate_limit`。"""
     lead = Lead(
         name=data.name.strip(),
         phone=data.phone.strip(),
