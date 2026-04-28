@@ -9,7 +9,7 @@
 
 **官网页面**（`app/(site)/`）：`/` 首页主视觉；`/teaching` 教学特色；`/news` 资讯列表；`/news/[slug]` 单篇资讯（Markdown 渲染）；`/contact` 预约咨询。顶栏 `Link` 切换，不再使用单页锚点滚到底。
 
-**管理端**（`app/(admin)/admin/`）：`/admin/login` JWT 登录；`/admin/leads` 线索列表与状态；`/admin/site` 站点信息；`/admin/articles` 文章列表/新建/编辑。Token 存浏览器 `localStorage`，请求带 `Authorization: Bearer`。
+**管理端**（`app/(admin)/admin/`）：`/admin/login` JWT 登录；侧栏 **预约信息**（`/admin/leads` 列表、快捷改状态、行内删除；`/admin/leads/new` 新建；`/admin/leads/[id]` 编辑/删除）、**站点**（`/admin/site`）、**文章管理**（`/admin/articles` 列表含行内删除；`/admin/articles/new`；`/admin/articles/[id]` 编辑/删除）。Token 存浏览器 `localStorage`，请求带 `Authorization: Bearer`。
 
 ## 环境
 
@@ -33,7 +33,36 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 - **存活**：`GET /health/live`  
 - **就绪**（连库）：`GET /health/ready`  
 
-`DATABASE_URL` / `DATABASE_URL_SYNC`、`CORS_ORIGINS`、**管理端** `ADMIN_JWT_SECRET` / `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH` 等见根目录 [`.env.example`](.env.example)。`apps/api` 启动时会从**仓库根** [`/.env`](.env) 读取（见 `apps/api/app/config.py` 中 `_env_file_paths`）。使用 Postgres 时先 `docker compose up -d`，再配置上述变量并 `alembic upgrade head`。
+`DATABASE_URL` / `DATABASE_URL_SYNC`、`CORS_ORIGINS`、**管理端** `ADMIN_JWT_SECRET` / `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH` 等见根目录 [`.env.example`](.env.example)。`apps/api` 启动时会从**仓库根** [`/.env`](.env) 读取（见 `apps/api/app/config.py` 中 `_env_file_paths`）。
+
+#### 使用 PostgreSQL（本地 Docker，全新库）
+
+与 [docker-compose.yml](docker-compose.yml) 中 `db` 服务一致：用户/库/密码均为 `artpro`，端口 `5432`。
+
+**WSL/Ubuntu 若尚未安装 Docker**（终端执行一次，会提示 sudo 密码）：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-v2
+sudo usermod -aG docker "$USER"
+# 关闭并重新打开 WSL，或执行: newgrp docker
+docker run --rm hello-world
+```
+
+装好后可在仓库根**一键起库并迁移**：`./scripts/postgres-docker-migrate.sh`（依赖根目录 `.env` 已配置下方 `DATABASE_*`）。
+
+1. 仓库根目录启动数据库：`docker compose up -d`（或 `docker compose up -d db`）；若已用上一键脚本可跳过本步与第 3 步中的 `alembic`。
+2. 在仓库根创建或编辑 `.env`，至少包含（`127.0.0.1` 可避免部分环境下 `localhost` 走 IPv6 连不上映射端口的问题）：
+
+   ```env
+   DATABASE_URL=postgresql+asyncpg://artpro:artpro@127.0.0.1:5432/artpro
+   DATABASE_URL_SYNC=postgresql+psycopg://artpro:artpro@127.0.0.1:5432/artpro
+   ```
+
+3. 在 `apps/api` 下执行 `alembic upgrade head`，再按上文启动 `uvicorn`。
+4. 确认 `GET /health/ready` 返回 `200` 且 `database` 为 `connected`。
+
+未配置上述变量时，API 仍默认使用 SQLite（`apps/api/data/artpro.db`），便于无 Docker 时开发。
 
 ### 2) 前端（`apps/web`）
 
@@ -67,8 +96,12 @@ npm run dev
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `POST` | `/api/v1/auth/login` |  body `username` / `password`，返回 JWT；依赖环境变量中 bcrypt 与 `ADMIN_JWT_SECRET` |
-| `GET` | `/api/v1/admin/leads` | 线索列表分页，排序 `created_at desc` |
-| `PATCH` | `/api/v1/admin/leads/{id}` | 更新 `status` |
+| `GET` | `/api/v1/admin/leads` | 预约信息列表分页，排序 `created_at desc` |
+| `POST` | `/api/v1/admin/leads` | 新建预约信息（管理端录入） |
+| `GET` | `/api/v1/admin/leads/{id}` | 单条预约详情 |
+| `PUT` | `/api/v1/admin/leads/{id}` | 更新预约字段（至少传一个要改的字段） |
+| `PATCH` | `/api/v1/admin/leads/{id}` | 更新 `status`（快捷改状态） |
+| `DELETE` | `/api/v1/admin/leads/{id}` | 删除预约信息 |
 | `PUT` | `/api/v1/admin/site/config` | 更新站点配置（与公开 GET 字段一致） |
 | `GET` | `/api/v1/admin/articles` | 文章列表（含草稿） |
 | `POST` | `/api/v1/admin/articles` | 创建文章 |
@@ -83,7 +116,7 @@ PRD 中其它路径（`banners`、`teachers`、`events` 等）**尚未实现**�
 - `app/layout.tsx`：根布局、`AppProviders`（全局 Toast）、`generateMetadata`（`fetchSiteConfig`）  
 - `app/(site)/layout.tsx`：站壳（顶栏/页脚拉取 `site/config`）  
 - `app/(site)/page.tsx`：首页；`news/page.tsx` + `news/[slug]/page.tsx` 拉取 `articles` / 按 slug 取详情；`contact/page.tsx` 含 `LeadForm`  
-- `app/(admin)/admin/*`：管理端页面；`lib/adminApi.ts`（`adminLogin`、`adminFetch`）  
+- `app/(admin)/admin/*`：管理端页面（预约信息 / 文章管理 CRUD 见上）；`lib/adminApi.ts`（`adminLogin`、`adminFetch`）  
 - `lib/api-server.ts`：`import "server-only"` + `cache()`；`fetchArticleBySlug` 等  
 - `components/ArticleMarkdown.tsx`：资讯正文 Markdown 安全渲染（`remark-gfm` + `rehype-sanitize`）  
 - `components/LeadForm.tsx`：客户端 `POST` `/api/v1/leads`（`getApiBase()`）

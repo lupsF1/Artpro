@@ -102,3 +102,42 @@ def test_leads_create_then_patch_status() -> None:
     )
     assert p.status_code == 200
     assert p.json()["data"]["status"] == "contacted"
+
+
+def test_admin_leads_crud() -> None:
+    c = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "testpass123"},
+    )
+    token = c.json()["data"]["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+    cr = client.post(
+        "/api/v1/admin/leads",
+        json={
+            "name": "后台录入",
+            "phone": "13900001111",
+            "message": "测试",
+            "source": "admin",
+            "status": "new",
+        },
+        headers=h,
+    )
+    assert cr.status_code == 200
+    assert cr.json()["code"] == 0
+    lid = cr.json()["data"]["id"]
+    g = client.get(f"/api/v1/admin/leads/{lid}", headers=h)
+    assert g.status_code == 200
+    assert g.json()["data"]["name"] == "后台录入"
+    u = client.put(
+        f"/api/v1/admin/leads/{lid}",
+        json={"name": "已改名", "status": "done"},
+        headers=h,
+    )
+    assert u.status_code == 200
+    assert u.json()["data"]["name"] == "已改名"
+    assert u.json()["data"]["status"] == "done"
+    d = client.delete(f"/api/v1/admin/leads/{lid}", headers=h)
+    assert d.status_code == 200
+    assert d.json()["code"] == 0
+    g404 = client.get(f"/api/v1/admin/leads/{lid}", headers=h)
+    assert g404.status_code == 404

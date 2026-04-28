@@ -33,7 +33,7 @@ def upgrade() -> None:
         sa.Column("id", Uuid(as_uuid=True), nullable=False),
         sa.Column("title", sa.String(500), nullable=False),
         sa.Column("slug", sa.String(200), nullable=False),
-        sa.Column("body", sa.Text(), nullable=False, server_default=""),
+        sa.Column("body", sa.Text(), nullable=False, server_default=sa.text("''")),
         sa.Column("excerpt", sa.String(2000), nullable=True),
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -44,6 +44,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_articles_slug", table_name="articles")
     op.drop_table("articles")
     op.drop_table("site_config")

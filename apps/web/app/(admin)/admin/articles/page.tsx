@@ -37,13 +37,27 @@ export default function AdminArticlesPage() {
     void load();
   }, [load]);
 
+  async function onDeleteArticle(articleId: string, title: string) {
+    if (!window.confirm(`确定删除「${title}」？此操作不可恢复。`)) return;
+    setErr(null);
+    try {
+      await adminFetch(`/api/v1/admin/articles/${articleId}`, { method: "DELETE" });
+      toast.success("已删除");
+      await load();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "删除失败";
+      setErr(msg);
+      toast.error(msg);
+    }
+  }
+
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-serif text-2xl font-semibold text-stone-900">文章</h1>
+          <h1 className="font-serif text-2xl font-semibold text-stone-900">文章管理</h1>
           <p className="mt-1 text-sm text-stone-500">
-            设置发布时间后，将在官网资讯列表展示；留空为草稿。
+            增删改查与发布：设置发布时间后将在官网资讯展示；留空为草稿。
           </p>
         </div>
         <Link
@@ -74,12 +88,21 @@ export default function AdminArticlesPage() {
                   : " 草稿"}
               </p>
             </div>
-            <Link
-              href={`/admin/articles/${a.id}`}
-              className="shrink-0 text-sm text-stone-600 underline underline-offset-2 hover:text-stone-900"
-            >
-              编辑
-            </Link>
+            <div className="flex shrink-0 items-center gap-3">
+              <Link
+                href={`/admin/articles/${a.id}`}
+                className="text-sm text-stone-600 underline underline-offset-2 hover:text-stone-900"
+              >
+                编辑
+              </Link>
+              <button
+                type="button"
+                className="text-sm text-red-700 underline underline-offset-2 hover:text-red-900"
+                onClick={() => onDeleteArticle(a.id, a.title)}
+              >
+                删除
+              </button>
+            </div>
           </li>
         ))}
       </ul>

@@ -10,12 +10,12 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from app.core.errors import E_CONFLICT, E_INTERNAL, E_NOT_FOUND
+from app.core.errors import E_CONFLICT, E_INTERNAL, E_NOT_FOUND, E_VALIDATION
 from app.core.responses import PaginationMeta, err, ok
 from app.deps import AdminUserDep, SessionDep
 from app.models import Article, Lead
 from app.schemas.article import ArticleCreate, ArticleOut, ArticleUpdate
-from app.schemas.lead import LeadOut, LeadPatch
+from app.schemas.lead import LeadAdminCreate, LeadOut, LeadPatch, LeadUpdate
 from app.schemas.site import SiteConfigUpdate
 from app.services.site_config import get_or_create_row
 
@@ -56,6 +56,118 @@ async def list_leads(
     )
 
 
+@router.post("/leads", response_model=None)
+async def create_lead_admin(
+    _: AdminUserDep,
+    data: LeadAdminCreate,
+    db: SessionDep,
+) -> dict | JSONResponse:
+    lead = Lead(
+        name=data.name.strip(),
+        phone=data.phone.strip(),
+        wechat=(data.wechat or "").strip() or None,
+        message=(data.message or "").strip() or None,
+        source=(data.source or "").strip() or "admin",
+        status=(data.status or "new").strip() or "new",
+    )
+    try:
+        db.add(lead)
+        await db.commit()
+        await db.refresh(lead)
+    except Exception:
+        await db.rollback()
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=err(E_INTERNAL, "创建失败"),
+        )
+    return ok(LeadOut.model_validate(lead).model_dump())
+
+
+@router.get("/leads/{lead_id}", response_model=None)
+async def get_lead(
+    lead_id: uuid.UUID,
+    _: AdminUserDep,
+    db: SessionDep,
+) -> dict | JSONResponse:
+    lead = await db.get(Lead, lead_id)
+    if lead is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=err(E_NOT_FOUND, "预约信息不存在"),
+        )
+    return ok(LeadOut.model_validate(lead).model_dump())
+
+
+@router.put("/leads/{lead_id}", response_model=None)
+async def put_lead(
+    lead_id: uuid.UUID,
+    _: AdminUserDep,
+    data: LeadUpdate,
+    db: SessionDep,
+) -> dict | JSONResponse:
+    lead = await db.get(Lead, lead_id)
+    if lead is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=err(E_NOT_FOUND, "预约信息不存在"),
+        )
+    payload = data.model_dump(exclude_unset=True)
+    if not payload:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content=err(E_VALIDATION, "请至少提供一个要更新的字段"),
+        )
+    if "name" in payload:
+        lead.name = str(payload["name"]).strip()
+    if "phone" in payload:
+        lead.phone = str(payload["phone"]).strip()
+    if "wechat" in payload:
+        w = payload["wechat"]
+        lead.wechat = (str(w).strip() or None) if w is not None else None
+    if "message" in payload:
+        m = payload["message"]
+        lead.message = (str(m).strip() or None) if m is not None else None
+    if "source" in payload:
+        s = payload["source"]
+        lead.source = (str(s).strip() or None) if s is not None else None
+    if "status" in payload:
+        lead.status = str(payload["status"]).strip() or "new"
+    try:
+        await db.commit()
+        await db.refresh(lead)
+    except Exception:
+        await db.rollback()
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=err(E_INTERNAL, "更新失败"),
+        )
+    return ok(LeadOut.model_validate(lead).model_dump())
+
+
+@router.delete("/leads/{lead_id}", response_model=None)
+async def delete_lead(
+    lead_id: uuid.UUID,
+    _: AdminUserDep,
+    db: SessionDep,
+) -> dict | JSONResponse:
+    lead = await db.get(Lead, lead_id)
+    if lead is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=err(E_NOT_FOUND, "预约信息不存在"),
+        )
+    try:
+        await db.delete(lead)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=err(E_INTERNAL, "删除失败"),
+        )
+    return ok({"ok": True})
+
+
 @router.patch("/leads/{lead_id}", response_model=None)
 async def patch_lead(
     lead_id: uuid.UUID,
@@ -73,7 +185,7 @@ async def patch_lead(
     if lead is None:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
-            content=err(E_NOT_FOUND, "线索不存在"),
+            content=err(E_NOT_FOUND, "预约信息不存在"),
         )
     lead.status = data.status.strip() or "new"
     try:

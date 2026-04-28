@@ -13,6 +13,7 @@ description: >-
 
 - **后端**：[`apps/api`](apps/api) — FastAPI，前缀 **`/api/v1`**，默认 SQLite（`apps/api/data/artpro.db`），迁移用 **Alembic**（在 `apps/api` 下执行 `alembic upgrade head`）。
 - **前端**：[`apps/web`](apps/web) — Next.js（App Router），通过 **`NEXT_PUBLIC_API_URL`** 指向后端（常见 `http://127.0.0.1:8000`）。
+- **管理端 UI**：侧栏 **预约信息**（`/admin/leads*` 全量 CRUD + 快捷改状态）、**文章管理**（`/admin/articles*`）、站点配置；与 [`docs/艺考官网-需求说明.md`](docs/艺考官网-需求说明.md) 附录 C、根 [`README.md`](README.md) 一致。
 - **产品/接口合同**：[`docs/艺考官网-需求说明.md`](docs/艺考官网-需求说明.md)；工程原则：[`docs/艺考官网-开发方案.md`](docs/艺考官网-开发方案.md)。
 
 ## 与本仓库其它 Skills 的联动
@@ -41,6 +42,7 @@ description: >-
 | 起 API | `cd apps/api && uvicorn app.main:app --reload --host 127.0.0.1 --port 8000` |
 | 迁移 | `cd apps/api && alembic upgrade head` |
 | 起前端 | `cd apps/web && npm run dev` |
+| Postgres + 迁库（Docker） | 仓库根 `./scripts/postgres-docker-migrate.sh`（见 README） |
 | 交互式 API 文档 | 浏览器打开 `http://127.0.0.1:8000/docs` |
 
 更完整说明见仓库根目录 [`README.md`](README.md)。

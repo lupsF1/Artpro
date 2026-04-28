@@ -65,7 +65,7 @@ export default function NewArticlePage() {
           ← 返回列表
         </Link>
       </p>
-      <h1 className="mt-2 font-serif text-2xl font-semibold text-stone-900">新建文章</h1>
+      <h1 className="mt-2 font-serif text-2xl font-semibold text-stone-900">文章管理 · 新建</h1>
       {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <div>

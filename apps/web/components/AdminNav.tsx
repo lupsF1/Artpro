@@ -6,9 +6,9 @@ import { setAdminToken } from "@/lib/adminApi";
 import { useToast } from "@/components/ToastProvider";
 
 const items = [
-  { href: "/admin/leads", label: "线索" },
+  { href: "/admin/leads", label: "预约信息" },
   { href: "/admin/site", label: "站点" },
-  { href: "/admin/articles", label: "文章" },
+  { href: "/admin/articles", label: "文章管理" },
 ] as const;
 
 export function AdminNav() {
