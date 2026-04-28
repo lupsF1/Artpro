@@ -1,6 +1,6 @@
 # 丝育教育官网（ArtPro 仓库）
 
-本仓库为 **丝育教育** 艺考类培训官网的 **monorepo**：Python **FastAPI** 提供 `/api/v1` JSON API，**Next.js 15**（App Router + React 19）提供官网前端。技术原则与分阶段见 [docs/艺考官网-开发方案.md](docs/艺考官网-开发方案.md)；产品与接口总览见 [docs/艺考官网-需求说明.md](docs/艺考官网-需求说明.md)。
+本仓库为 **丝育教育** 艺考类培训官网的 **monorepo**：Python **FastAPI** 提供 `/api/v1` JSON API，**Next.js 15**（App Router + React 19）提供官网前端。技术原则与分阶段见 [docs/艺考官网-开发方案.md](docs/艺考官网-开发方案.md)；产品与接口总览见 [docs/艺考官网-需求说明.md](docs/艺考官网-需求说明.md)。**GitHub 多人协作流程**见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 | 子项目 | 技术栈 | 说明 |
 |--------|--------|------|
