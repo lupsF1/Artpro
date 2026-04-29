@@ -48,10 +48,10 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${notoSans.variable} ${notoSerif.variable} bg-[#f3f0eb]`}
+      className={`${notoSans.variable} ${notoSerif.variable} bg-cream`}
     >
       <body
-        className={`${notoSans.className} relative min-h-dvh text-stone-800 antialiased selection:bg-stone-200/80`}
+        className={`${notoSans.className} relative min-h-dvh text-stone-800 antialiased selection:bg-coral/20`}
       >
         <AppProviders>
           <SiteBackground />

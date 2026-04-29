@@ -19,14 +19,22 @@ export function NavLinks({ items }: { items: readonly Item[] }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`px-2.5 py-1.5 text-[0.7rem] font-medium tracking-[0.1em] antialiased transition sm:px-3 sm:text-[0.8125rem] sm:tracking-[0.12em] ${
+            className={`relative px-3 py-2 text-[0.8rem] font-medium tracking-[0.04em] transition sm:px-3.5 sm:text-[0.825rem] ${
               active
-                ? "border-b-2 border-amber-700/65 pb-0.5 text-stone-900"
-                : "border-b-2 border-transparent pb-0.5 text-stone-500 hover:border-stone-300/60 hover:text-stone-800"
-            } `}
+                ? "text-stone-900"
+                : "text-stone-500 hover:text-stone-800"
+            }`}
             aria-current={active ? "page" : undefined}
           >
             {item.label}
+            <span
+              className={`absolute inset-x-3 bottom-0 h-[2px] rounded-full transition-all duration-300 ${
+                active
+                  ? "bg-clay opacity-100"
+                  : "bg-transparent opacity-0"
+              }`}
+              aria-hidden
+            />
           </Link>
         );
       })}
