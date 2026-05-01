@@ -21,11 +21,12 @@ export function SiteHeader({ siteName }: Props) {
     <header
       className={`fixed inset-x-0 top-0 z-30 font-sans transition-all duration-500 ${
         scrolled
-          ? "border-b border-stone-200/60 bg-cream/90 backdrop-blur-xl shadow-soft"
+          ? "border-b border-white/10 bg-cream/85 shadow-soft shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
           : "bg-transparent"
       }`}
+      style={scrolled ? { backdropFilter: "blur(20px) saturate(1.2)", WebkitBackdropFilter: "blur(20px) saturate(1.2)" } : undefined}
     >
-      <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 sm:h-[4.5rem] sm:px-8">
+      <div className="relative mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-5 sm:h-[4.5rem] sm:px-8 lg:px-12">
         <Link
           href="/"
           className="group shrink-0 flex items-center gap-2.5 transition hover:opacity-80"
@@ -49,7 +50,7 @@ export function SiteHeader({ siteName }: Props) {
           <MobileNav
             items={mainNav}
             className="relative sm:hidden"
-            panelClassName="absolute right-0 z-30 mt-2 min-w-[11rem] overflow-hidden rounded-2xl border border-stone-200/80 bg-white/95 p-1.5 shadow-lift backdrop-blur-xl"
+            panelClassName="absolute right-0 z-30 mt-2 min-w-[11rem] overflow-hidden rounded-2xl border border-white/10 bg-white/90 p-1.5 shadow-lift"
             summary={
               <summary className="list-none cursor-pointer rounded-lg border border-stone-200/80 bg-white/80 px-3 py-1.5 text-sm text-stone-700 transition hover:bg-stone-50 [&::-webkit-details-marker]:hidden">
                 导航
@@ -58,7 +59,7 @@ export function SiteHeader({ siteName }: Props) {
           />
           <Link
             href="/contact"
-            className="rounded-full bg-clay px-5 py-2 text-xs font-semibold text-white shadow-warm transition-all hover:bg-clay-dark sm:text-[0.8rem] sm:tracking-wide"
+            className="tactile rounded-full bg-clay px-5 py-2 text-xs font-semibold text-white shadow-warm transition-all hover:bg-clay-dark sm:text-[0.8rem] sm:tracking-wide"
           >
             预约咨询
           </Link>

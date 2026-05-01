@@ -40,42 +40,77 @@ export default async function NewsArticlePage({ params }: Props) {
   }
   const a = env.data;
   return (
-    <section className="relative w-full min-w-0 min-h-0 flex-1 border-b border-stone-200/45 bg-stone-100/60 py-20 backdrop-blur-[2px] sm:py-28">
-      <div
-        className="pointer-events-none absolute inset-0 z-0 bg-grid-fine opacity-25"
-        aria-hidden
-      />
+    <section className="relative w-full min-w-0 min-h-0 flex-1 section-rhythm">
       <ArtAtmosphere variant="news" />
       <div className="relative z-10 mx-auto w-full max-w-3xl px-5 sm:px-8 lg:px-10">
-        <p className="text-sm text-stone-500">
-          <Link
-            href="/news"
-            className="text-stone-600 underline decoration-stone-300 underline-offset-2 transition hover:text-stone-800"
+        {/* Back link */}
+        <Link
+          href="/news"
+          className="animate-fade-in inline-flex items-center gap-1.5 text-sm text-stone-500 transition hover:text-stone-800"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            ← 返回资讯动态
-          </Link>
-        </p>
-        <header className="mt-5 border-b border-stone-200/70 pb-8">
-          <p className="text-xs font-medium uppercase tracking-[0.15em] text-stone-500">
+            <path d="M19 12H5" />
+            <path d="M12 19l-7-7 7-7" />
+          </svg>
+          返回资讯动态
+        </Link>
+
+        {/* Article header */}
+        <header className="animate-fade-up stagger-1 mt-8 border-b border-stone-200/70 pb-8 sm:mt-10">
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-clay">
             考讯
           </p>
-          <h1 className="mt-2 font-serif text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
+          <h1 className="mt-3 font-serif text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
             {a.title}
           </h1>
           {a.publishedAt && (
-            <p className="mt-3 text-sm text-stone-500">
+            <p className="mt-4 text-sm text-stone-400">
               {formatTime(a.publishedAt)}
             </p>
           )}
         </header>
-        <article className="prose-news mt-8 max-w-none">
+
+        {/* Article body */}
+        <article className="animate-fade-up stagger-2 prose-news mt-8 max-w-none sm:mt-10">
           {a.excerpt && (
-            <p className="mb-6 border-l-2 border-stone-300/80 pl-4 text-sm leading-relaxed text-stone-600">
+            <p className="mb-6 border-l-2 border-clay/30 pl-4 text-sm leading-relaxed text-stone-600">
               {a.excerpt}
             </p>
           )}
           <ArticleMarkdown content={a.body} />
         </article>
+
+        {/* Back to list */}
+        <div className="animate-fade-up stagger-3 mt-12 border-t border-stone-200/50 pt-8">
+          <Link
+            href="/news"
+            className="tactile inline-flex items-center gap-2 rounded-full border border-stone-200/80 bg-white/60 px-5 py-2.5 text-sm font-medium text-stone-600 backdrop-blur-sm transition-all hover:border-stone-300 hover:bg-white/80 hover:text-stone-900"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M19 12H5" />
+              <path d="M12 19l-7-7 7-7" />
+            </svg>
+            返回列表
+          </Link>
+        </div>
       </div>
     </section>
   );

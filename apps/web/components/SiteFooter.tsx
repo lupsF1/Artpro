@@ -6,9 +6,10 @@ type Props = { siteName: string; icp: string | null };
 export function SiteFooter({ siteName, icp }: Props) {
   return (
     <footer className="mt-auto border-t border-stone-200/60 bg-sand font-sans">
-      <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-        <div className="grid gap-10 sm:grid-cols-3 sm:gap-16">
-          {/* 品牌 */}
+      <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20 lg:px-12">
+        {/* Asymmetric grid: brand wider than nav/contact */}
+        <div className="grid gap-10 sm:grid-cols-[1.4fr_0.8fr_0.8fr] sm:gap-12">
+          {/* Brand */}
           <div>
             <div className="flex items-center gap-2.5">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-clay text-[0.55rem] font-bold leading-none text-white sm:h-9 sm:w-9 sm:text-[0.6rem]">
@@ -23,7 +24,7 @@ export function SiteFooter({ siteName, icp }: Props) {
             </p>
           </div>
 
-          {/* 导航 */}
+          {/* Nav */}
           <nav aria-label="页脚导航">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-stone-400">
               导航
@@ -42,7 +43,7 @@ export function SiteFooter({ siteName, icp }: Props) {
             </ul>
           </nav>
 
-          {/* 联系 */}
+          {/* Contact CTA */}
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-stone-400">
               联系
@@ -52,17 +53,17 @@ export function SiteFooter({ siteName, icp }: Props) {
             </p>
             <Link
               href="/contact"
-              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-clay transition hover:text-clay-dark"
+              className="tactile mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-clay transition hover:text-clay-dark"
             >
               立即预约 <span aria-hidden>→</span>
             </Link>
           </div>
         </div>
 
-        {/* 分隔线 */}
+        {/* Divider */}
         <div className="mt-12 h-px bg-gradient-to-r from-transparent via-stone-300/40 to-transparent" />
 
-        {/* 底部 */}
+        {/* Bottom bar */}
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-stone-400">
             © {new Date().getFullYear()}{" "}

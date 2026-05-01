@@ -83,7 +83,8 @@ export function LeadForm() {
       aria-labelledby="contact-heading"
       aria-busy={submitting}
       onSubmit={onSubmit}
-      className="mt-12 max-w-md space-y-6 rounded-3xl border border-stone-200/50 bg-white/80 p-8 font-sans shadow-premium backdrop-blur-sm sm:mt-16 sm:p-10"
+      className="animate-scale-in w-full max-w-md space-y-6 rounded-3xl border border-white/10 bg-white/80 p-8 font-sans shadow-premium backdrop-blur-sm sm:p-10"
+      style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px rgb(0 0 0 / 0.04), 0 12px 32px rgb(139 111 71 / 0.06)" }}
     >
       <div>
         <label className="text-[0.8rem] font-medium text-stone-500" htmlFor="lead-name">
@@ -96,11 +97,13 @@ export function LeadForm() {
           autoComplete="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          placeholder="您的姓名"
           required
           minLength={1}
           maxLength={120}
           disabled={submitting}
         />
+        <p className="mt-1.5 text-xs text-stone-400">请填写真实姓名，便于联系</p>
       </div>
       <div>
         <label className="text-[0.8rem] font-medium text-stone-500" htmlFor="lead-phone">
@@ -115,11 +118,13 @@ export function LeadForm() {
           autoComplete="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
+          placeholder="手机号码"
           required
           minLength={5}
           maxLength={32}
           disabled={submitting}
         />
+        <p className="mt-1.5 text-xs text-stone-400">我们将在工作时间与您联系</p>
       </div>
       <div>
         <label className="text-[0.8rem] font-medium text-stone-500" htmlFor="lead-message">
@@ -132,15 +137,27 @@ export function LeadForm() {
           rows={3}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
+          placeholder="想了解的课程或问题（选填）"
           disabled={submitting}
         />
+        <p className="mt-1.5 text-xs text-stone-400">可选填，帮助我们更好地准备</p>
       </div>
       <button
         type="submit"
         disabled={submitting}
-        className="w-full rounded-xl bg-clay py-3 text-sm font-semibold text-white shadow-warm transition-all hover:bg-clay-dark disabled:cursor-not-allowed disabled:opacity-40"
+        className="tactile w-full rounded-xl bg-clay py-3.5 text-sm font-semibold text-white shadow-warm transition-all hover:bg-clay-dark disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {submitting ? "提交中…" : "提交"}
+        {submitting ? (
+          <span className="inline-flex items-center gap-2">
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            提交中
+          </span>
+        ) : (
+          "提交"
+        )}
       </button>
       {status === "ok" && (
         <p

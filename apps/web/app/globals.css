@@ -47,6 +47,39 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Stagger animation delays for cascading reveals */
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+  .stagger-5 { animation-delay: 0.25s; }
+  .stagger-6 { animation-delay: 0.3s; }
+  .stagger-7 { animation-delay: 0.35s; }
+  .stagger-8 { animation-delay: 0.4s; }
+
+  /* Tactile press feedback */
+  .tactile {
+    transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .tactile:active {
+    transform: translateY(1px) scale(0.98);
+  }
+
+  /* Glassmorphism with inner refraction */
+  .glass {
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    background: linear-gradient(90deg, #f0ece4 25%, #f5f1ea 50%, #f0ece4 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
 }
 
 /* ═══ 全站背景画布（精简：纯底色 + 微噪点） ═══ */

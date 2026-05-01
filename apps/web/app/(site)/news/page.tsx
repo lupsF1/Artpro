@@ -27,10 +27,10 @@ export default async function NewsPage() {
   return (
     <section className="relative w-full min-w-0 min-h-0 flex-1 section-rhythm">
       <ArtAtmosphere variant="news" />
-      <div className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 lg:px-10">
-        {/* 标题区 */}
+      <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
+        {/* Header */}
         <div className="flex items-start gap-4 sm:items-end sm:gap-5">
-          <span className="shrink-0 font-display text-4xl font-bold leading-none text-stone-200 sm:text-5xl">
+          <span className="shrink-0 font-display text-5xl font-bold leading-none text-stone-200/80 sm:text-6xl">
             02
           </span>
           <div>
@@ -38,7 +38,7 @@ export default async function NewsPage() {
               <span className="inline-block h-px w-3 bg-clay/40" />
               考讯
             </p>
-            <h1 className="mt-1.5 font-display text-display-md font-bold text-stone-900">
+            <h1 className="mt-1.5 font-display text-display-md font-bold tracking-tight text-stone-900">
               资讯动态
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-[1.8] text-stone-500 sm:mt-5 sm:text-base">
@@ -48,13 +48,30 @@ export default async function NewsPage() {
         </div>
 
         {articles.length === 0 ? (
+          /* Empty state: No emoji, use SVG icon */
           <div className="mt-14 sm:mt-18">
-            <div className="flex flex-col items-center rounded-3xl border border-dashed border-stone-300/50 bg-white/60 px-8 py-16 text-center sm:py-20">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blush/30">
-                <span className="text-lg">📄</span>
+            <div className="flex flex-col items-center rounded-3xl border border-dashed border-stone-300/50 bg-white/60 px-8 py-16 text-center backdrop-blur-sm sm:py-20">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-stone-400"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M16 13H8" />
+                  <path d="M16 17H8" />
+                  <path d="M10 9H8" />
+                </svg>
               </div>
-              <p className="text-sm font-medium text-stone-600">暂无文章</p>
-              <p className="mt-1.5 text-xs text-stone-400">
+              <p className="text-sm font-medium text-stone-700">暂无文章</p>
+              <p className="mt-2 max-w-xs text-xs leading-relaxed text-stone-400">
                 内容上线后，将在此展示最新考讯与活动通知。
               </p>
             </div>
@@ -64,30 +81,33 @@ export default async function NewsPage() {
             {articles.map((a, i) => (
               <li
                 key={a.id || `article-row-${i}`}
-                className="group flex items-start gap-4 rounded-2xl border border-stone-200/50 bg-white/70 px-5 py-4 text-sm backdrop-blur-sm transition hover:border-stone-200/80 hover:shadow-soft sm:px-6 sm:py-5"
+                className="animate-fade-up group"
+                style={{ animationDelay: `${i * 0.04}s` }}
               >
-                <span
-                  className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-coral/[0.08] font-mono text-[0.55rem] font-medium text-coral transition group-hover:bg-coral/[0.15]"
-                  aria-hidden
-                >
-                  {i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  {a.slug ? (
-                    <Link
-                      href={`/news/${encodeURIComponent(a.slug)}`}
-                      className="block font-medium leading-snug text-stone-700 transition group-hover:text-stone-900"
-                    >
-                      {a.title}
-                      <span className="ml-2 inline-block text-xs text-clay/0 transition group-hover:text-clay/60">
-                        →
-                      </span>
-                    </Link>
-                  ) : (
-                    <p className="font-medium leading-snug text-stone-700">
-                      {a.title}
-                    </p>
-                  )}
+                <div className="flex items-start gap-4 rounded-2xl border border-stone-200/50 bg-white/70 px-5 py-4 text-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-stone-200/80 hover:shadow-soft sm:px-6 sm:py-5">
+                  <span
+                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-coral/[0.08] font-mono text-[0.55rem] font-medium text-coral transition group-hover:bg-coral/[0.15]"
+                    aria-hidden
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {a.slug ? (
+                      <Link
+                        href={`/news/${encodeURIComponent(a.slug)}`}
+                        className="block font-medium leading-snug text-stone-700 transition group-hover:text-stone-900"
+                      >
+                        {a.title}
+                        <span className="ml-2 inline-block text-xs text-clay/0 transition group-hover:text-clay/60">
+                          →
+                        </span>
+                      </Link>
+                    ) : (
+                      <p className="font-medium leading-snug text-stone-700">
+                        {a.title}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </li>
             ))}

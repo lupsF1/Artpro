@@ -64,7 +64,7 @@ const config: Config = {
       },
       keyframes: {
         "fade-up": {
-          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "0%": { opacity: "0", transform: "translateY(24px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         "fade-in": {
@@ -75,11 +75,26 @@ const config: Config = {
           "0%": { opacity: "0", transform: "scale(0.97)" },
           "100%": { opacity: "1", transform: "scale(1)" },
         },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-8px)" },
+        },
+        "shimmer": {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        "breathe": {
+          "0%, 100%": { opacity: "0.4" },
+          "50%": { opacity: "0.7" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both",
         "fade-in": "fade-in 0.5s ease-out both",
         "scale-in": "scale-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "float": "float 6s ease-in-out infinite",
+        "shimmer": "shimmer 2s linear infinite",
+        "breathe": "breathe 4s ease-in-out infinite",
       },
       boxShadow: {
         soft: "0 1px 3px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.03)",
