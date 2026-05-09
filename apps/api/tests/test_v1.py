@@ -1,5 +1,11 @@
+from __future__ import annotations
+
+import uuid
+
+import pytest
 from fastapi.testclient import TestClient
 
+from app.core.errors import E_AI_UNAVAILABLE
 from app.main import app
 
 client = TestClient(app)
@@ -141,3 +147,46 @@ def test_admin_leads_crud() -> None:
     assert d.json()["code"] == 0
     g404 = client.get(f"/api/v1/admin/leads/{lid}", headers=h)
     assert g404.status_code == 404
+
+
+def test_admin_article_pipeline_unauthorized() -> None:
+    r = client.post(
+        "/api/v1/admin/articles/00000000-0000-0000-0000-000000000001/pipeline/outline",
+        json={"brief": ""},
+    )
+    assert r.status_code == 401
+
+
+def test_admin_article_pipeline_no_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    c = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "testpass123"},
+    )
+    token = c.json()["data"]["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+    slug = f"pipe-{uuid.uuid4().hex[:12]}"
+    cr = client.post(
+        "/api/v1/admin/articles",
+        json={
+            "title": "流水线测试",
+            "slug": slug,
+            "body": "",
+        },
+        headers=h,
+    )
+    assert cr.status_code == 200
+    aid = cr.json()["data"]["id"]
+    r = client.post(
+        f"/api/v1/admin/articles/{aid}/pipeline/outline",
+        json={"brief": "考点梳理"},
+        headers=h,
+    )
+    assert r.status_code == 503
+    body = r.json()
+    assert body["code"] == E_AI_UNAVAILABLE
+    assert "OPENAI_API_KEY" in body["message"]

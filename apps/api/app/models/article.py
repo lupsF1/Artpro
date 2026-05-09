@@ -27,6 +27,15 @@ class Article(Base):
     slug: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, index=True)
     body: Mapped[str] = mapped_column(Text, default="", nullable=False)
     excerpt: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    # AI 流水线：大纲（Markdown）；官网不返回此字段
+    outline: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # idle | outlined | drafted | excerpted
+    pipeline_stage: Mapped[str] = mapped_column(
+        String(32),
+        default="idle",
+        nullable=False,
+        server_default="idle",
+    )
     # 为空表示草稿，非空为对外发布时间
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

@@ -13,8 +13,17 @@ type Article = {
   slug: string;
   body: string;
   excerpt: string | null;
+  outline: string | null;
+  pipeline_stage: string;
   published_at: string | null;
   updated_at: string;
+};
+
+const PIPELINE_LABEL: Record<string, string> = {
+  idle: "流水未启动",
+  outlined: "已出大纲",
+  drafted: "已出正文",
+  excerpted: "已出摘要",
 };
 
 function isoToDatetimeLocal(iso: string | null): string {
@@ -43,6 +52,8 @@ export default function EditArticlePage() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pipelineBrief, setPipelineBrief] = useState("");
+  const [pipelineBusy, setPipelineBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setErr(null);
@@ -78,6 +89,7 @@ export default function EditArticlePage() {
           slug: f.slug,
           body: f.body,
           excerpt: f.excerpt,
+          outline: f.outline,
           published_at,
         }),
       });
@@ -89,6 +101,39 @@ export default function EditArticlePage() {
       toast.error(msg);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function runPipeline(step: "outline" | "body" | "excerpt") {
+    if (!f) return;
+    setPipelineBusy(step);
+    setErr(null);
+    try {
+      if (step === "excerpt") {
+        const next = await adminFetch<Article>(`/api/v1/admin/articles/${id}/pipeline/excerpt`, {
+          method: "POST",
+          body: "{}",
+        });
+        setF(next);
+        toast.success("摘要已生成并保存");
+        return;
+      }
+      const path =
+        step === "outline"
+          ? `/api/v1/admin/articles/${id}/pipeline/outline`
+          : `/api/v1/admin/articles/${id}/pipeline/body`;
+      const next = await adminFetch<Article>(path, {
+        method: "POST",
+        body: JSON.stringify({ brief: pipelineBrief }),
+      });
+      setF(next);
+      toast.success(step === "outline" ? "大纲已生成并保存" : "正文已生成并保存");
+    } catch (e0: unknown) {
+      const msg = e0 instanceof Error ? e0.message : "生成失败";
+      setErr(msg);
+      toast.error(msg);
+    } finally {
+      setPipelineBusy(null);
     }
   }
 
@@ -119,6 +164,62 @@ export default function EditArticlePage() {
       </p>
       <h1 className="mt-2 font-serif text-2xl font-semibold text-stone-900">文章管理 · 编辑</h1>
       {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
+      <section className="mt-6 rounded-2xl border border-violet-200/80 bg-violet-50/40 px-4 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-medium text-violet-950">AI 生产流水线</h2>
+          <span className="rounded-full bg-white/90 px-2.5 py-0.5 text-xs text-violet-900 ring-1 ring-violet-200/80">
+            {PIPELINE_LABEL[f.pipeline_stage] ?? f.pipeline_stage}
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-violet-900/70">
+          需在后端配置 <code className="rounded bg-violet-100/80 px-1">OPENAI_API_KEY</code>
+          （可选 <code className="rounded bg-violet-100/80 px-1">OPENAI_BASE_URL</code>、
+          <code className="rounded bg-violet-100/80 px-1">OPENAI_MODEL</code>）。生成结果写入当前文章，请人工校对后再发布。
+        </p>
+        <label className="mt-3 block text-xs text-violet-900/80">补充说明（可选，告诉 AI 侧重、受众或素材要点）</label>
+        <textarea
+          className="mt-1 w-full rounded-xl border border-violet-200/80 bg-white/90 px-3 py-2 text-sm text-stone-900"
+          rows={3}
+          value={pipelineBrief}
+          onChange={(e) => setPipelineBrief(e.target.value)}
+          placeholder="例如：面向高一家长，介绍素描静物阶段规划，不涉及具体院校分数线……"
+        />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={!!pipelineBusy}
+            onClick={() => void runPipeline("outline")}
+            className="rounded-xl bg-violet-700 px-3 py-2 text-sm font-medium text-white hover:bg-violet-600 disabled:opacity-60"
+          >
+            {pipelineBusy === "outline" ? "生成大纲中…" : "1. 生成大纲"}
+          </button>
+          <button
+            type="button"
+            disabled={!!pipelineBusy}
+            onClick={() => void runPipeline("body")}
+            className="rounded-xl border border-violet-300/90 bg-white px-3 py-2 text-sm font-medium text-violet-900 hover:bg-violet-50 disabled:opacity-60"
+          >
+            {pipelineBusy === "body" ? "生成正文中…" : "2. 根据大纲生成正文"}
+          </button>
+          <button
+            type="button"
+            disabled={!!pipelineBusy}
+            onClick={() => void runPipeline("excerpt")}
+            className="rounded-xl border border-violet-300/90 bg-white px-3 py-2 text-sm font-medium text-violet-900 hover:bg-violet-50 disabled:opacity-60"
+          >
+            {pipelineBusy === "excerpt" ? "生成摘要中…" : "3. 生成摘要"}
+          </button>
+        </div>
+        <div className="mt-4">
+          <label className="text-xs text-violet-900/80">大纲（可手工改，保存表单时一并提交）</label>
+          <textarea
+            className="mt-1 w-full rounded-xl border border-violet-200/80 bg-white/90 px-3 py-2 font-mono text-xs text-stone-800"
+            rows={6}
+            value={f.outline ?? ""}
+            onChange={(e) => setF({ ...f, outline: e.target.value || null })}
+          />
+        </div>
+      </section>
       <form onSubmit={onSave} className="mt-6 space-y-4">
         <div>
           <label className="text-xs text-stone-500">标题</label>

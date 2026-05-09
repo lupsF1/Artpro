@@ -12,9 +12,17 @@ type Item = {
   excerpt: string | null;
   published_at: string | null;
   updated_at: string;
+  pipeline_stage?: string;
 };
 
 type List = { items: Item[]; meta: { page: number; pageSize: number; total: number } };
+
+const PIPELINE_LABEL: Record<string, string> = {
+  idle: "流水未启动",
+  outlined: "已出大纲",
+  drafted: "已出正文",
+  excerpted: "已出摘要",
+};
 
 export default function AdminArticlesPage() {
   const toast = useToast();
@@ -58,6 +66,9 @@ export default function AdminArticlesPage() {
           <h1 className="font-serif text-2xl font-semibold text-stone-900">文章管理</h1>
           <p className="mt-1 text-sm text-stone-500">
             增删改查与发布：设置发布时间后将在官网资讯展示；留空为草稿。
+            <span className="mt-1 block text-violet-900/80">
+              AI 生产流水线在每条目的<strong className="font-medium">「编辑」</strong>页顶部（紫色区块）。
+            </span>
           </p>
         </div>
         <Link
@@ -86,6 +97,9 @@ export default function AdminArticlesPage() {
                 {a.published_at
                   ? ` 发布 ${a.published_at.replace("T", " ").slice(0, 16)}`
                   : " 草稿"}
+                {a.pipeline_stage && a.pipeline_stage !== "idle"
+                  ? ` · ${PIPELINE_LABEL[a.pipeline_stage] ?? a.pipeline_stage}`
+                  : ""}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">

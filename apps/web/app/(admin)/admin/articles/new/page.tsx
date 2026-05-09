@@ -66,6 +66,9 @@ export default function NewArticlePage() {
         </Link>
       </p>
       <h1 className="mt-2 font-serif text-2xl font-semibold text-stone-900">文章管理 · 新建</h1>
+      <p className="mt-2 text-sm text-violet-900/80">
+        保存后将进入编辑页，在顶部可使用 <strong className="font-medium">AI 生产流水线</strong>（生成大纲 / 正文 / 摘要）。
+      </p>
       {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <div>

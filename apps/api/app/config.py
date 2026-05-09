@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     # 留资接口按 IP 限流（slowapi 语法，如 30/minute）；测试可加大 LEADS_RATE_LIMIT
     leads_rate_limit: str = Field(default="30/minute")
 
+    # 文章 AI 流水线（OpenAI 兼容 /v1/chat/completions）
+    openai_api_key: str = Field(default="", description="为空则生成功能不可用")
+    openai_base_url: str = Field(default="https://api.openai.com/v1")
+    openai_model: str = Field(default="gpt-4o-mini")
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors(cls, v: str | list[str]) -> list[str]:
