@@ -35,6 +35,7 @@ os.environ["ADMIN_USERNAME"] = "admin"
 os.environ["ADMIN_PASSWORD_HASH"] = (
     "$2b$12$8p6z0uFObfvaQ9h.Tkg0IO/CJT7GgTGtK/lUDKh3tId4c4KQiH13S"
 )
+os.environ["ARTICLE_REVISION_CLEANUP_ENABLED"] = "false"
 
 
 @pytest.fixture(scope="session", autouse=True)

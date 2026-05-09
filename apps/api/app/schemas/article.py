@@ -52,3 +52,21 @@ class ArticlePipelineBrief(BaseModel):
     """文章流水线：补充说明（可选），供模型理解写作意图。"""
 
     brief: str = Field(default="", max_length=8000)
+
+
+REVISION_KINDS = frozenset({"outline", "body", "excerpt"})
+
+
+class ArticleRevisionOut(BaseModel):
+    id: uuid.UUID
+    article_id: uuid.UUID
+    kind: str
+    content: str
+    source: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at")
+    def _ser_created(self, v: datetime) -> str:
+        return v.isoformat()

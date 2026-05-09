@@ -69,6 +69,134 @@ function buildHeaders(
   return headers;
 }
 
+export type PipelineStreamEvent =
+  | { type: "delta"; text: string }
+  | {
+      type: "done";
+      revision: Record<string, unknown>;
+      article: Record<string, unknown>;
+    }
+  | { type: "error"; code: number; message: string };
+
+function flushSseBuffer(
+  buffer: string,
+): { rest: string; events: PipelineStreamEvent[] } {
+  const events: PipelineStreamEvent[] = [];
+  let rest = buffer;
+  while (true) {
+    const idx = rest.indexOf("\n\n");
+    if (idx === -1) break;
+    const block = rest.slice(0, idx).replace(/\r/g, "");
+    rest = rest.slice(idx + 2);
+    const line = block.split("\n").find((l) => l.startsWith("data: "));
+    if (!line) continue;
+    try {
+      events.push(JSON.parse(line.slice(6)) as PipelineStreamEvent);
+    } catch {
+      /* 忽略畸形帧 */
+    }
+  }
+  return { rest, events };
+}
+
+/**
+ * 文章流水线：SSE (`text/event-stream`)，帧为 JSON：`delta` | `done` | `error`。
+ */
+export async function adminPipelineStream(
+  path: string,
+  init: RequestInit & { body?: string },
+  handlers: {
+    onDelta: (text: string) => void;
+    onDone: (revision: Record<string, unknown>, article: Record<string, unknown>) => void;
+  },
+): Promise<void> {
+  const t = getAdminToken();
+  const headers = buildHeaders(t, init.headers);
+  headers.Accept = "text/event-stream";
+  const r = await fetch(apiUrl(path), {
+    ...init,
+    method: init.method ?? "POST",
+    headers,
+    body: init.body ?? "{}",
+  });
+
+  const ct = r.headers.get("content-type") ?? "";
+
+  if (r.status === 401) {
+    setAdminToken(null);
+    if (typeof window !== "undefined") {
+      const next = window.location.pathname + window.location.search;
+      if (!window.location.pathname.startsWith("/admin/login")) {
+        window.location.href = `/admin/login?next=${encodeURIComponent(next)}`;
+      }
+    }
+    let message = "未授权，请重新登录";
+    try {
+      const j = (await r.json()) as Envelope<unknown>;
+      message = j?.message || message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+
+  if (!ct.includes("text/event-stream")) {
+    try {
+      const j = (await r.json()) as Envelope<unknown>;
+      if (!r.ok || j.code !== 0) {
+        throw new Error(j?.message || r.statusText || "生成失败");
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      throw new Error(r.statusText || "生成失败");
+    }
+    throw new Error("未收到流式响应");
+  }
+
+  if (!r.ok || !r.body) {
+    throw new Error(r.statusText || "生成失败");
+  }
+
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (value) {
+      buf += decoder.decode(value, { stream: true });
+    }
+    const { rest, events } = flushSseBuffer(buf);
+    buf = rest;
+    for (const ev of events) {
+      if (ev.type === "delta" && typeof ev.text === "string") {
+        handlers.onDelta(ev.text);
+      } else if (ev.type === "done" && ev.revision && ev.article) {
+        handlers.onDone(ev.revision, ev.article);
+        await reader.cancel().catch(() => {});
+        return;
+      } else if (ev.type === "error") {
+        await reader.cancel().catch(() => {});
+        throw new Error(ev.message ?? "生成失败");
+      }
+    }
+    if (done) {
+      const { events: finalEvents } = flushSseBuffer(buf + decoder.decode());
+      for (const ev of finalEvents) {
+        if (ev.type === "delta" && typeof ev.text === "string") {
+          handlers.onDelta(ev.text);
+        } else if (ev.type === "done" && ev.revision && ev.article) {
+          handlers.onDone(ev.revision, ev.article);
+          return;
+        } else if (ev.type === "error") {
+          throw new Error(ev.message ?? "生成失败");
+        }
+      }
+      throw new Error("流已结束但未收到完成帧");
+    }
+  }
+}
+
 export async function adminFetch<T = unknown>(
   path: string,
   init: RequestInit = {},

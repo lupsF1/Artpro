@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -16,14 +17,26 @@ from app.core.errors import E_RATE_LIMIT, E_VALIDATION
 from app.core.responses import err
 from app.db import check_db, engine
 from app.limiter import limiter
+from app.services.article_revision_cleanup import run_revision_cleanup_forever
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if settings.database_url.startswith("sqlite"):
         Path("data").mkdir(parents=True, exist_ok=True)
-    yield
-    await engine.dispose()
+    cleanup_task: asyncio.Task[None] | None = None
+    if settings.article_revision_cleanup_enabled:
+        cleanup_task = asyncio.create_task(run_revision_cleanup_forever())
+    try:
+        yield
+    finally:
+        if cleanup_task is not None:
+            cleanup_task.cancel()
+            try:
+                await cleanup_task
+            except asyncio.CancelledError:
+                pass
+        await engine.dispose()
 
 
 _docs = (

@@ -74,7 +74,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={api}>
       {children}
       <div
-        className="pointer-events-none fixed bottom-4 right-4 z-[200] flex max-w-[min(22rem,calc(100vw-2rem))] flex-col gap-2"
+        className="pointer-events-none fixed inset-x-0 top-1/2 z-[200] flex -translate-y-1/2 flex-col items-center gap-3 px-4"
         aria-live="polite"
         aria-atomic="true"
       >
@@ -84,8 +84,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             role="status"
             className={
               t.variant === "success"
-                ? "pointer-events-auto rounded-xl border border-emerald-200/90 bg-emerald-50/95 px-4 py-3 text-sm text-emerald-900 shadow-lg backdrop-blur"
-                : "pointer-events-auto rounded-xl border border-rose-200/90 bg-rose-50/95 px-4 py-3 text-sm text-rose-900 shadow-lg backdrop-blur"
+                ? "pointer-events-auto w-full max-w-md rounded-xl border border-emerald-200/90 bg-emerald-50/95 px-4 py-3 text-center text-sm text-emerald-900 shadow-lg backdrop-blur"
+                : "pointer-events-auto w-full max-w-md rounded-xl border border-rose-200/90 bg-rose-50/95 px-4 py-3 text-center text-sm text-rose-900 shadow-lg backdrop-blur"
             }
           >
             {t.message}

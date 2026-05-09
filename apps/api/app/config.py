@@ -55,10 +55,49 @@ class Settings(BaseSettings):
     # 留资接口按 IP 限流（slowapi 语法，如 30/minute）；测试可加大 LEADS_RATE_LIMIT
     leads_rate_limit: str = Field(default="30/minute")
 
-    # 文章 AI 流水线（OpenAI 兼容 /v1/chat/completions）
-    openai_api_key: str = Field(default="", description="为空则生成功能不可用")
-    openai_base_url: str = Field(default="https://api.openai.com/v1")
-    openai_model: str = Field(default="gpt-4o-mini")
+    # 文章 AI 流水线（OpenAI 兼容 POST /v1/chat/completions；默认对接小米 MiMo）
+    # 密钥二选一；文档：https://platform.xiaomimimo.com/docs/zh-CN/api/chat/openai-api
+    openai_api_key: str = Field(
+        default="",
+        description="通用 LLM API Key（OpenAI 或其它兼容平台）；与 MIMO_API_KEY 二选一",
+    )
+    mimo_api_key: str = Field(
+        default="",
+        description="小米 MiMo 控制台 API Key；未设 OPENAI_API_KEY 时使用",
+    )
+    openai_base_url: str = Field(
+        default="https://api.xiaomimimo.com/v1",
+        description="兼容 OpenAI 的 API 根路径（须含 /v1，不含末尾斜杠也可）",
+    )
+    openai_model: str = Field(
+        default="xiaomi/mimo-v2-flash",
+        description="对话模型 id（MiMo 常用 xiaomi/mimo-v2-flash、xiaomi/mimo-v2-pro）",
+    )
+
+    # 文章 AI 修订历史（article_revisions）：超时清理与后台任务间隔
+    article_revision_cleanup_enabled: bool = Field(
+        default=True,
+        description="是否在进程内启动定时清理任务；测试环境可设 false",
+    )
+    article_revision_retention_hours: int = Field(
+        default=24,
+        ge=1,
+        le=8760,
+        description="修订创建时间超过此时长则从库中删除",
+    )
+    article_revision_cleanup_interval_seconds: int = Field(
+        default=86400,
+        ge=60,
+        description="后台清理任务执行周期间隔（秒），默认 86400=24 小时",
+    )
+
+    def resolved_llm_api_key(self) -> str:
+        """OPENAI_API_KEY 优先，否则 MIMO_API_KEY。"""
+        for raw in (self.openai_api_key, self.mimo_api_key):
+            t = (raw or "").strip()
+            if t:
+                return t
+        return ""
 
     @field_validator("cors_origins", mode="before")
     @classmethod

@@ -3,10 +3,14 @@
 import { useState } from "react";
 import { ArticleMarkdown } from "@/components/ArticleMarkdown";
 
-type Props = { body: string };
+type Props = {
+  body: string;
+  /** 可滚动区域高度（默认适合单块预览）；侧栏双块时可传如 max-h-[calc((100dvh-14rem)/2)] */
+  scrollBoxClassName?: string;
+};
 
 /** 管理端：正文 Markdown 实时预览。 */
-export function AdminArticleMdPreview({ body }: Props) {
+export function AdminArticleMdPreview({ body, scrollBoxClassName }: Props) {
   const [open, setOpen] = useState(true);
   if (!open) {
     return (
@@ -33,7 +37,11 @@ export function AdminArticleMdPreview({ body }: Props) {
           收起
         </button>
       </div>
-      <div className="max-h-[min(50vh,28rem)] overflow-y-auto rounded-xl border border-stone-200/90 bg-stone-50/80 p-4">
+      <div
+        className={`overflow-y-auto rounded-xl border border-stone-200/90 bg-stone-50/80 p-4 ${
+          scrollBoxClassName ?? "max-h-[min(50vh,28rem)]"
+        }`}
+      >
         {body?.trim() ? (
           <ArticleMarkdown
             content={body}

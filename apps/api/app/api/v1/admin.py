@@ -2,29 +2,43 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Query, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from app.config import get_settings
 from app.core.errors import E_AI_UNAVAILABLE, E_CONFLICT, E_INTERNAL, E_NOT_FOUND, E_VALIDATION
 from app.core.responses import PaginationMeta, err, ok
 from app.deps import AdminUserDep, SessionDep
-from app.models import Article, Lead
+from app.db import AsyncSessionLocal
+from app.models import Article, ArticleRevision, Lead
 from app.schemas.article import (
     ArticleCreate,
     ArticleOut,
     ArticlePipelineBrief,
+    ArticleRevisionOut,
     ArticleUpdate,
+    REVISION_KINDS,
 )
 from app.schemas.lead import LeadAdminCreate, LeadOut, LeadPatch, LeadUpdate
 from app.schemas.site import SiteConfigUpdate
-from app.services.article_pipeline import generate_body, generate_excerpt, generate_outline
+from app.services.article_pipeline import (
+    _normalize_outline_markdown,
+    _strip_outer_code_fence,
+    stream_body_deltas,
+    stream_excerpt_deltas,
+    stream_outline_deltas,
+)
 from app.services.llm_openai import LLMUnavailableError, LLMUpstreamError
 from app.services.site_config import get_or_create_row
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -36,6 +50,38 @@ def _norm_pipeline_stage(raw: str | None) -> str:
         return "idle"
     s = raw.strip()
     return s if s in _PIPELINE_STAGES else "idle"
+
+
+def _norm_revision_kind(raw: str) -> str | None:
+    k = (raw or "").strip().lower()
+    return k if k in REVISION_KINDS else None
+
+
+def _sse_line(obj: dict) -> str:
+    return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n"
+
+
+def _stream_pipeline_error_message(prefix: str, exc: BaseException) -> str:
+    detail = (str(exc) or "").strip() or type(exc).__name__
+    msg = f"{prefix}（{detail}）"
+    return msg if len(msg) <= 800 else msg[:797] + "..."
+
+
+def _llm_not_configured() -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=err(
+            E_AI_UNAVAILABLE,
+            "未配置 AI：请设置环境变量 OPENAI_API_KEY 或 MIMO_API_KEY（小米 MiMo）",
+        ),
+    )
+
+
+_STREAM_HEADERS = {
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
 
 
 @router.get("/leads", response_model=None)
@@ -420,44 +466,96 @@ async def article_pipeline_outline(
     article_id: uuid.UUID,
     data: ArticlePipelineBrief,
     _: AdminUserDep,
-    db: SessionDep,
-) -> dict | JSONResponse:
-    a = await db.get(Article, article_id)
-    if a is None:
-        return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content=err(E_NOT_FOUND, "文章不存在"),
-        )
-    try:
-        outline = await generate_outline(a, data.brief)
-    except LLMUnavailableError:
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content=err(E_AI_UNAVAILABLE, "未配置 AI：请设置环境变量 OPENAI_API_KEY"),
-        )
-    except LLMUpstreamError as e:
-        return JSONResponse(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            content=err(E_INTERNAL, f"模型服务异常：{e}"),
-        )
-    except Exception:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=err(E_INTERNAL, "生成大纲失败"),
-        )
-    a.outline = outline
-    a.pipeline_stage = "outlined"
-    a.updated_at = datetime.now(timezone.utc)
-    try:
-        await db.commit()
-        await db.refresh(a)
-    except Exception:
-        await db.rollback()
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=err(E_INTERNAL, "保存失败"),
-        )
-    return ok(ArticleOut.model_validate(a).model_dump())
+) -> StreamingResponse | JSONResponse:
+    if not get_settings().resolved_llm_api_key():
+        return _llm_not_configured()
+
+    async with AsyncSessionLocal() as db0:
+        a0 = await db0.get(Article, article_id)
+        if a0 is None:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content=err(E_NOT_FOUND, "文章不存在"),
+            )
+        aid = a0.id
+        brief = data.brief
+
+    async def events():
+        async with AsyncSessionLocal() as db:
+            a = await db.get(Article, aid)
+            if a is None:
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_NOT_FOUND,
+                        "message": "文章不存在",
+                    }
+                )
+                return
+            parts: list[str] = []
+            try:
+                async for delta in stream_outline_deltas(a, brief):
+                    parts.append(delta)
+                    yield _sse_line({"type": "delta", "text": delta})
+                outline = _normalize_outline_markdown(
+                    _strip_outer_code_fence("".join(parts))
+                )
+                rev = ArticleRevision(
+                    article_id=a.id,
+                    kind="outline",
+                    content=outline,
+                    source="ai",
+                )
+                db.add(rev)
+                await db.commit()
+                await db.refresh(rev)
+                await db.refresh(a)
+                yield _sse_line(
+                    {
+                        "type": "done",
+                        "revision": ArticleRevisionOut.model_validate(rev).model_dump(
+                            mode="json"
+                        ),
+                        "article": ArticleOut.model_validate(a).model_dump(mode="json"),
+                    }
+                )
+            except LLMUnavailableError:
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_AI_UNAVAILABLE,
+                        "message": "未配置 AI：请设置环境变量 OPENAI_API_KEY 或 MIMO_API_KEY（小米 MiMo）",
+                    }
+                )
+            except LLMUpstreamError as e:
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_INTERNAL,
+                        "message": f"模型服务异常：{e}",
+                    }
+                )
+            except Exception as e:
+                logger.exception("article_pipeline_outline failed")
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_INTERNAL,
+                        "message": _stream_pipeline_error_message(
+                            "生成大纲失败", e
+                        ),
+                    },
+                )
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers=dict(_STREAM_HEADERS),
+    )
 
 
 @router.post("/articles/{article_id}/pipeline/body", response_model=None)
@@ -465,8 +563,219 @@ async def article_pipeline_body(
     article_id: uuid.UUID,
     data: ArticlePipelineBrief,
     _: AdminUserDep,
+) -> StreamingResponse | JSONResponse:
+    if not get_settings().resolved_llm_api_key():
+        return _llm_not_configured()
+
+    async with AsyncSessionLocal() as db0:
+        a0 = await db0.get(Article, article_id)
+        if a0 is None:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content=err(E_NOT_FOUND, "文章不存在"),
+            )
+        aid = a0.id
+        brief = data.brief
+
+    async def events():
+        async with AsyncSessionLocal() as db:
+            a = await db.get(Article, aid)
+            if a is None:
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_NOT_FOUND,
+                        "message": "文章不存在",
+                    }
+                )
+                return
+            parts: list[str] = []
+            try:
+                async for delta in stream_body_deltas(a, brief):
+                    parts.append(delta)
+                    yield _sse_line({"type": "delta", "text": delta})
+                body = _strip_outer_code_fence("".join(parts))
+                rev = ArticleRevision(
+                    article_id=a.id,
+                    kind="body",
+                    content=body,
+                    source="ai",
+                )
+                db.add(rev)
+                await db.commit()
+                await db.refresh(rev)
+                await db.refresh(a)
+                yield _sse_line(
+                    {
+                        "type": "done",
+                        "revision": ArticleRevisionOut.model_validate(rev).model_dump(
+                            mode="json"
+                        ),
+                        "article": ArticleOut.model_validate(a).model_dump(mode="json"),
+                    }
+                )
+            except LLMUnavailableError:
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_AI_UNAVAILABLE,
+                        "message": "未配置 AI：请设置环境变量 OPENAI_API_KEY 或 MIMO_API_KEY（小米 MiMo）",
+                    }
+                )
+            except LLMUpstreamError as e:
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_INTERNAL,
+                        "message": f"模型服务异常：{e}",
+                    }
+                )
+            except Exception as e:
+                logger.exception("article_pipeline_body failed")
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_INTERNAL,
+                        "message": _stream_pipeline_error_message(
+                            "生成正文失败", e
+                        ),
+                    },
+                )
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers=dict(_STREAM_HEADERS),
+    )
+
+
+@router.post("/articles/{article_id}/pipeline/excerpt", response_model=None)
+async def article_pipeline_excerpt(
+    article_id: uuid.UUID,
+    _: AdminUserDep,
+) -> StreamingResponse | JSONResponse:
+    if not get_settings().resolved_llm_api_key():
+        return _llm_not_configured()
+
+    async with AsyncSessionLocal() as db0:
+        a0 = await db0.get(Article, article_id)
+        if a0 is None:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content=err(E_NOT_FOUND, "文章不存在"),
+            )
+        if not (a0.body or "").strip():
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content=err(E_VALIDATION, "正文为空，无法生成摘要"),
+            )
+        aid = a0.id
+
+    async def events():
+        async with AsyncSessionLocal() as db:
+            a = await db.get(Article, aid)
+            if a is None:
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_NOT_FOUND,
+                        "message": "文章不存在",
+                    }
+                )
+                return
+            parts: list[str] = []
+            try:
+                async for delta in stream_excerpt_deltas(a):
+                    parts.append(delta)
+                    yield _sse_line({"type": "delta", "text": delta})
+                raw = "".join(parts)
+                excerpt = raw.replace("\n", " ").strip()
+                if len(excerpt) > 500:
+                    excerpt = excerpt[:500]
+                rev = ArticleRevision(
+                    article_id=a.id,
+                    kind="excerpt",
+                    content=excerpt[:2000],
+                    source="ai",
+                )
+                db.add(rev)
+                await db.commit()
+                await db.refresh(rev)
+                await db.refresh(a)
+                yield _sse_line(
+                    {
+                        "type": "done",
+                        "revision": ArticleRevisionOut.model_validate(rev).model_dump(
+                            mode="json"
+                        ),
+                        "article": ArticleOut.model_validate(a).model_dump(mode="json"),
+                    }
+                )
+            except ValueError as e:
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_VALIDATION,
+                        "message": str(e) or "正文为空，无法生成摘要",
+                    }
+                )
+            except LLMUnavailableError:
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_AI_UNAVAILABLE,
+                        "message": "未配置 AI：请设置环境变量 OPENAI_API_KEY 或 MIMO_API_KEY（小米 MiMo）",
+                    }
+                )
+            except LLMUpstreamError as e:
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_INTERNAL,
+                        "message": f"模型服务异常：{e}",
+                    }
+                )
+            except Exception as e:
+                logger.exception("article_pipeline_excerpt failed")
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+                yield _sse_line(
+                    {
+                        "type": "error",
+                        "code": E_INTERNAL,
+                        "message": _stream_pipeline_error_message(
+                            "生成摘要失败", e
+                        ),
+                    },
+                )
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers=dict(_STREAM_HEADERS),
+    )
+
+
+@router.get("/articles/{article_id}/revisions", response_model=None)
+async def list_article_revisions(
+    article_id: uuid.UUID,
+    _: AdminUserDep,
     db: SessionDep,
+    kind: str = Query(..., description="outline、body 或 excerpt"),
+    limit: int = Query(50, ge=1, le=100),
 ) -> dict | JSONResponse:
+    k = _norm_revision_kind(kind)
+    if not k:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content=err(E_VALIDATION, "kind 须为 outline、body 或 excerpt"),
+        )
     a = await db.get(Article, article_id)
     if a is None:
         return JSONResponse(
@@ -474,40 +783,34 @@ async def article_pipeline_body(
             content=err(E_NOT_FOUND, "文章不存在"),
         )
     try:
-        body = await generate_body(a, data.brief)
-    except LLMUnavailableError:
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content=err(E_AI_UNAVAILABLE, "未配置 AI：请设置环境变量 OPENAI_API_KEY"),
+        res = await db.execute(
+            select(ArticleRevision)
+            .where(
+                ArticleRevision.article_id == article_id,
+                ArticleRevision.kind == k,
+            )
+            .order_by(ArticleRevision.created_at.desc())
+            .limit(limit),
         )
-    except LLMUpstreamError as e:
-        return JSONResponse(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            content=err(E_INTERNAL, f"模型服务异常：{e}"),
-        )
+        rows = res.scalars().all()
     except Exception:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=err(E_INTERNAL, "生成正文失败"),
+            content=err(E_INTERNAL, "查询失败"),
         )
-    a.body = body
-    a.pipeline_stage = "drafted"
-    a.updated_at = datetime.now(timezone.utc)
-    try:
-        await db.commit()
-        await db.refresh(a)
-    except Exception:
-        await db.rollback()
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=err(E_INTERNAL, "保存失败"),
-        )
-    return ok(ArticleOut.model_validate(a).model_dump())
+    return ok(
+        {
+            "items": [
+                ArticleRevisionOut.model_validate(x).model_dump() for x in rows
+            ],
+        }
+    )
 
 
-@router.post("/articles/{article_id}/pipeline/excerpt", response_model=None)
-async def article_pipeline_excerpt(
+@router.post("/articles/{article_id}/revisions/{revision_id}/apply", response_model=None)
+async def apply_article_revision(
     article_id: uuid.UUID,
+    revision_id: uuid.UUID,
     _: AdminUserDep,
     db: SessionDep,
 ) -> dict | JSONResponse:
@@ -517,30 +820,26 @@ async def article_pipeline_excerpt(
             status_code=status.HTTP_404_NOT_FOUND,
             content=err(E_NOT_FOUND, "文章不存在"),
         )
-    if not (a.body or "").strip():
+    r = await db.get(ArticleRevision, revision_id)
+    if r is None or r.article_id != article_id:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=err(E_NOT_FOUND, "修订不存在"),
+        )
+    if r.kind == "outline":
+        a.outline = r.content
+        a.pipeline_stage = "outlined"
+    elif r.kind == "body":
+        a.body = r.content
+        a.pipeline_stage = "drafted"
+    elif r.kind == "excerpt":
+        a.excerpt = (r.content or "")[:2000] or None
+        a.pipeline_stage = "excerpted"
+    else:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=err(E_VALIDATION, "正文为空，无法生成摘要"),
+            content=err(E_VALIDATION, "修订类型无效"),
         )
-    try:
-        excerpt = await generate_excerpt(a)
-    except LLMUnavailableError:
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content=err(E_AI_UNAVAILABLE, "未配置 AI：请设置环境变量 OPENAI_API_KEY"),
-        )
-    except LLMUpstreamError as e:
-        return JSONResponse(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            content=err(E_INTERNAL, f"模型服务异常：{e}"),
-        )
-    except Exception:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=err(E_INTERNAL, "生成摘要失败"),
-        )
-    a.excerpt = excerpt[:2000]
-    a.pipeline_stage = "excerpted"
     a.updated_at = datetime.now(timezone.utc)
     try:
         await db.commit()
@@ -549,6 +848,37 @@ async def article_pipeline_excerpt(
         await db.rollback()
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=err(E_INTERNAL, "保存失败"),
+            content=err(E_INTERNAL, "应用修订失败"),
         )
     return ok(ArticleOut.model_validate(a).model_dump())
+
+
+@router.delete("/articles/{article_id}/revisions/{revision_id}", response_model=None)
+async def delete_article_revision(
+    article_id: uuid.UUID,
+    revision_id: uuid.UUID,
+    _: AdminUserDep,
+    db: SessionDep,
+) -> dict | JSONResponse:
+    a = await db.get(Article, article_id)
+    if a is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=err(E_NOT_FOUND, "文章不存在"),
+        )
+    r = await db.get(ArticleRevision, revision_id)
+    if r is None or r.article_id != article_id:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=err(E_NOT_FOUND, "修订不存在"),
+        )
+    try:
+        await db.delete(r)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=err(E_INTERNAL, "删除修订失败"),
+        )
+    return ok({"ok": True})
