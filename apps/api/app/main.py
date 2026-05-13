@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -71,7 +72,7 @@ async def validation_handler(_: Request, exc: RequestValidationError) -> JSONRes
         content=err(
             E_VALIDATION,
             "参数校验失败",
-            data={"errors": exc.errors()},
+            data={"errors": jsonable_encoder(exc.errors())},
         ),
     )
 

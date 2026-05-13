@@ -54,6 +54,22 @@ class Settings(BaseSettings):
     api_docs_enabled: bool = Field(default=True)
     # 留资接口按 IP 限流（slowapi 语法，如 30/minute）；测试可加大 LEADS_RATE_LIMIT
     leads_rate_limit: str = Field(default="30/minute")
+    # 艺考咨询助手 SSE（公开 POST /api/v1/assistant/chat）
+    assistant_rate_limit: str = Field(default="20/minute")
+    kb_max_upload_mb: int = Field(default=10, ge=1, le=200)
+    embedding_base_url: str = Field(
+        default="",
+        description="OpenAI 兼容 Embeddings 根 URL；空则使用 OPENAI_BASE_URL",
+    )
+    embedding_model: str = Field(default="text-embedding-3-small")
+    embedding_api_key: str = Field(
+        default="",
+        description="Embeddings Key；空则与 OPENAI_API_KEY / MIMO_API_KEY 共用",
+    )
+    kb_chunk_size: int = Field(default=900, ge=100, le=8000)
+    kb_chunk_overlap: int = Field(default=120, ge=0, le=2000)
+    rag_top_k: int = Field(default=5, ge=1, le=20)
+    rag_min_cosine: float = Field(default=0.22, ge=-1.0, le=1.0)
 
     # 文章 AI 流水线（OpenAI 兼容 POST /v1/chat/completions；默认对接小米 MiMo）
     # 密钥二选一；文档：https://platform.xiaomimimo.com/docs/zh-CN/api/chat/openai-api
@@ -98,6 +114,18 @@ class Settings(BaseSettings):
             if t:
                 return t
         return ""
+
+    def resolved_embedding_api_key(self) -> str:
+        t = (self.embedding_api_key or "").strip()
+        if t:
+            return t
+        return self.resolved_llm_api_key()
+
+    def resolved_embedding_base_url(self) -> str:
+        u = (self.embedding_base_url or "").strip().rstrip("/")
+        if u:
+            return u
+        return (self.openai_base_url or "").strip().rstrip("/")
 
     @field_validator("cors_origins", mode="before")
     @classmethod

@@ -148,3 +148,74 @@ async def chat_completion_stream(
         raise
     except httpx.HTTPError as e:
         raise LLMUpstreamError(str(e)) from e
+
+
+def _validate_chat_messages(messages: list[dict[str, str]]) -> None:
+    if not messages:
+        raise ValueError("empty messages")
+    roles = {"system", "user", "assistant"}
+    for m in messages:
+        if not isinstance(m, dict) or m.get("role") not in roles:
+            raise ValueError("invalid message role")
+        c = m.get("content")
+        if not isinstance(c, str) or not c.strip():
+            raise ValueError("empty content")
+
+
+async def chat_completion_stream_messages(
+    *,
+    messages: list[dict[str, str]],
+    temperature: float = 0.7,
+) -> AsyncIterator[str]:
+    """流式多轮对话：messages 须含 role/content；首条建议为 system。"""
+    _validate_chat_messages(messages)
+    s = get_settings()
+    key = s.resolved_llm_api_key()
+    if not key:
+        raise LLMUnavailableError()
+    url = f"{s.openai_base_url.rstrip('/')}/chat/completions"
+    model = (s.openai_model or "xiaomi/mimo-v2-flash").strip()
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True,
+    }
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream(
+                "POST", url, json=payload, headers=headers
+            ) as response:
+                if response.status_code >= 400:
+                    body = (await response.aread()).decode(errors="replace")
+                    raise LLMUpstreamError(
+                        body[:500] if body else response.reason_phrase
+                    )
+                async for line in response.aiter_lines():
+                    if not line or line.startswith(":"):
+                        continue
+                    raw_payload: str | None = None
+                    if line.startswith("data:"):
+                        raw_payload = line[5:].strip()
+                    if raw_payload is None:
+                        continue
+                    if raw_payload == "[DONE]":
+                        break
+                    try:
+                        data = json.loads(raw_payload)
+                    except json.JSONDecodeError:
+                        continue
+                    piece = _extract_stream_chunk_text(data)
+                    if piece:
+                        yield piece
+    except LLMUnavailableError:
+        raise
+    except LLMUpstreamError:
+        raise
+    except httpx.HTTPError as e:
+        raise LLMUpstreamError(str(e)) from e

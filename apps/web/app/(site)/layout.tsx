@@ -1,3 +1,4 @@
+import { ConsultAssistant } from "@/components/ConsultAssistant";
 import { SiteHeader } from "@/components/SiteHeader";
 import { fetchSiteConfig } from "@/lib/api-server";
 
@@ -22,6 +23,7 @@ export default async function SiteLayout({
       <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col">
         {children}
       </div>
+      <ConsultAssistant />
     </div>
   );
 }

@@ -13,7 +13,8 @@ description: >-
 
 - **后端**：[`apps/api`](apps/api) — FastAPI，前缀 **`/api/v1`**，默认 SQLite（`apps/api/data/artpro.db`），迁移用 **Alembic**（在 `apps/api` 下执行 `alembic upgrade head`）。
 - **前端**：[`apps/web`](apps/web) — Next.js（App Router），通过 **`NEXT_PUBLIC_API_URL`** 指向后端（常见 `http://127.0.0.1:8000`）。
-- **管理端 UI**：侧栏 **预约信息**（`/admin/leads*` 全量 CRUD + 快捷改状态）、**文章管理**（`/admin/articles*`）、站点配置；与 [`docs/艺考官网-需求说明.md`](docs/艺考官网-需求说明.md) 附录 C、根 [`README.md`](README.md) 一致。
+- **管理端 UI**：侧栏 **预约信息**（`/admin/leads*`）、**文章管理**（`/admin/articles*`）、**知识库**（`/admin/kb*`，PDF/Word 入库与审核）、站点配置；与 [`docs/艺考官网-需求说明.md`](docs/艺考官网-需求说明.md) 附录 C、根 [`README.md`](README.md) 一致。
+- **分支文档**：新功能分支除更新上述 PRD/开发方案外，在 **`docs/implementations/{分支名}.md`** 新增本分支实现说明（示例：[`docs/implementations/艺考咨询助手.md`](../../docs/implementations/艺考咨询助手.md)）；约定见 [`docs/艺考官网-开发方案.md`](../../docs/艺考官网-开发方案.md) §12.3.1。
 - **产品/接口合同**：[`docs/艺考官网-需求说明.md`](docs/艺考官网-需求说明.md)；工程原则：[`docs/艺考官网-开发方案.md`](docs/艺考官网-开发方案.md)。
 
 ## 与本仓库其它 Skills 的联动

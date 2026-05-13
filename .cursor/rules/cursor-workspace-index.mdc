@@ -19,6 +19,10 @@ alwaysApply: true
 
 说明：项目 Skills 与 `~/.cursor/skills-cursor/` 内置技能可同时适用；**本仓库业务与栈以 `artpro-yikao` + `docs/` 为准**。
 
+## 分支实现文档（`docs/implementations/`）
+
+- 新功能分支：除更新 PRD 附录 C、`docs/艺考官网-开发方案.md` §12 外，在 **`docs/implementations/{分支名}.md`** 记录该分支接口与联调说明（示例：[艺考咨询助手.md](../docs/implementations/艺考咨询助手.md)）。约定见开发方案 §12.3.1。
+
 ## Rules（`.cursor/rules/`）
 
 | 文件 | 说明 |
