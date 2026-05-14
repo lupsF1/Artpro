@@ -21,12 +21,38 @@ type List = {
   meta: { page: number; pageSize: number; total: number };
 };
 
+type ChunkItem = {
+  id: string;
+  ordinal: number;
+  text: string;
+  meta: unknown;
+  textLength: number;
+};
+
+type ChunkList = {
+  document: {
+    id: string;
+    title: string;
+    status: string;
+    reviewStatus: string;
+    chunkCount: number;
+  };
+  items: ChunkItem[];
+  meta: { page: number; pageSize: number; total: number };
+};
+
+const CHUNK_PAGE_SIZE = 10;
+
 export default function AdminKbPage() {
   const toast = useToast();
   const [data, setData] = useState<List | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [title, setTitle] = useState("");
+  const [openChunksId, setOpenChunksId] = useState<string | null>(null);
+  const [chunkPage, setChunkPage] = useState(1);
+  const [chunks, setChunks] = useState<ChunkList | null>(null);
+  const [chunksLoading, setChunksLoading] = useState(false);
 
   const load = useCallback(async () => {
     setErr(null);
@@ -99,6 +125,44 @@ export default function AdminKbPage() {
       setErr(msg);
       toast.error(msg);
     }
+  }
+
+  const loadChunks = useCallback(
+    async (documentId: string, nextPage = chunkPage) => {
+      setChunksLoading(true);
+      setErr(null);
+      try {
+        const d = await adminFetch<ChunkList>(
+          `/api/v1/admin/kb/documents/${documentId}/chunks?page=${nextPage}&pageSize=${CHUNK_PAGE_SIZE}`,
+        );
+        setChunks(d);
+        setOpenChunksId(documentId);
+        setChunkPage(nextPage);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "加载分块失败";
+        setErr(msg);
+        toast.error(msg);
+      } finally {
+        setChunksLoading(false);
+      }
+    },
+    [chunkPage, toast],
+  );
+
+  function toggleChunks(row: Row) {
+    if (openChunksId === row.id) {
+      setOpenChunksId(null);
+      setChunks(null);
+      setChunkPage(1);
+      return;
+    }
+    void loadChunks(row.id, 1);
+  }
+
+  function formatMeta(meta: unknown) {
+    if (meta == null) return "无";
+    if (typeof meta === "string") return meta;
+    return JSON.stringify(meta, null, 2);
   }
 
   return (
@@ -199,6 +263,15 @@ export default function AdminKbPage() {
                   撤下
                 </button>
               ) : null}
+              {row.status === "ready" && row.chunkCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => toggleChunks(row)}
+                  className="rounded-lg border border-blue-200 bg-blue-50/80 px-3 py-1.5 text-xs text-blue-800"
+                >
+                  {openChunksId === row.id ? "收起分块" : "查看分块"}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void onDelete(row.id, row.title)}
@@ -207,6 +280,88 @@ export default function AdminKbPage() {
                 删除
               </button>
             </div>
+            {openChunksId === row.id ? (
+              <div className="mt-3 rounded-2xl border border-stone-200 bg-stone-50/70 p-3 sm:col-span-2 sm:w-full">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-stone-900">分块结果</p>
+                    <p className="text-xs text-stone-500">
+                      共 {chunks?.meta.total ?? row.chunkCount} 个分块，当前第 {chunks?.meta.page ?? chunkPage} 页
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={chunksLoading}
+                    onClick={() => void loadChunks(row.id, chunkPage)}
+                    className="w-fit rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-700 disabled:opacity-50"
+                  >
+                    {chunksLoading ? "加载中…" : "刷新分块"}
+                  </button>
+                </div>
+                <div className="mt-3 space-y-3">
+                  {chunksLoading && !chunks ? (
+                    <p className="rounded-xl border border-dashed border-stone-300 p-4 text-sm text-stone-500">
+                      正在加载分块…
+                    </p>
+                  ) : null}
+                  {chunks?.items.map((chunk) => (
+                    <article key={chunk.id} className="rounded-xl border border-stone-200 bg-white p-3">
+                      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-stone-500">
+                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-700">
+                          #{chunk.ordinal + 1}
+                        </span>
+                        <span>{chunk.textLength} 字</span>
+                      </div>
+                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-stone-50 p-3 text-xs leading-6 text-stone-800">
+                        {chunk.text}
+                      </pre>
+                      <details className="mt-2 text-xs text-stone-500">
+                        <summary className="cursor-pointer select-none text-stone-600">查看元数据</summary>
+                        <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-stone-100 p-2 text-[11px] leading-5 text-stone-700">
+                          {formatMeta(chunk.meta)}
+                        </pre>
+                      </details>
+                    </article>
+                  ))}
+                </div>
+                {chunks ? (
+                  <div className="mt-3 flex items-center justify-between text-xs text-stone-600">
+                    <span>
+                      第 {chunks.meta.page} / {Math.max(1, Math.ceil(chunks.meta.total / CHUNK_PAGE_SIZE))} 页
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={chunks.meta.page <= 1 || chunksLoading}
+                        onClick={() => void loadChunks(row.id, Math.max(1, chunks.meta.page - 1))}
+                        className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 disabled:opacity-40"
+                      >
+                        上一页
+                      </button>
+                      <button
+                        type="button"
+                        disabled={
+                          chunks.meta.page >= Math.max(1, Math.ceil(chunks.meta.total / CHUNK_PAGE_SIZE)) ||
+                          chunksLoading
+                        }
+                        onClick={() =>
+                          void loadChunks(
+                            row.id,
+                            Math.min(
+                              Math.max(1, Math.ceil(chunks.meta.total / CHUNK_PAGE_SIZE)),
+                              chunks.meta.page + 1,
+                            ),
+                          )
+                        }
+                        className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 disabled:opacity-40"
+                      >
+                        下一页
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </li>
         ))}
       </ul>

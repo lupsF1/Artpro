@@ -23,23 +23,27 @@ const PIPELINE_LABEL: Record<string, string> = {
   drafted: "已出正文",
   excerpted: "已出摘要",
 };
+const PAGE_SIZE = 20;
 
 export default function AdminArticlesPage() {
   const toast = useToast();
   const [data, setData] = useState<List | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setErr(null);
     try {
-      const d = await adminFetch<List>("/api/v1/admin/articles?page=1&pageSize=100");
+      const d = await adminFetch<List>(
+        `/api/v1/admin/articles?page=${page}&pageSize=${PAGE_SIZE}`,
+      );
       setData(d);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "加载失败";
       setErr(msg);
       toast.error(msg);
     }
-  }, [toast]);
+  }, [page, toast]);
 
   useEffect(() => {
     void load();
@@ -58,6 +62,9 @@ export default function AdminArticlesPage() {
       toast.error(msg);
     }
   }
+
+  const total = data?.meta.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div>
@@ -120,6 +127,31 @@ export default function AdminArticlesPage() {
           </li>
         ))}
       </ul>
+      {data && totalPages > 1 ? (
+        <div className="mt-5 flex items-center justify-between rounded-2xl border border-stone-200/80 bg-white/70 px-4 py-3 text-sm text-stone-600">
+          <span>
+            第 {data.meta.page} / {totalPages} 页，共 {total} 篇
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded-lg border border-stone-200 px-3 py-1.5 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              上一页
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="rounded-lg border border-stone-200 px-3 py-1.5 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              下一页
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

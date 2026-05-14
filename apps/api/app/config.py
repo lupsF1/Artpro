@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     kb_chunk_overlap: int = Field(default=120, ge=0, le=2000)
     rag_top_k: int = Field(default=5, ge=1, le=20)
     rag_min_cosine: float = Field(default=0.22, ge=-1.0, le=1.0)
+    rag_dense_top_k: int = Field(default=30, ge=1, le=200)
+    rag_bm25_top_k: int = Field(default=30, ge=1, le=200)
+    reranker_base_url: str = Field(
+        default="",
+        description="可选 Cross-Encoder/Reranker 服务地址；空则使用本地轻量重排序",
+    )
+    reranker_model: str = Field(default="")
+    reranker_api_key: str = Field(default="")
 
     # 文章 AI 流水线（OpenAI 兼容 POST /v1/chat/completions；默认对接小米 MiMo）
     # 密钥二选一；文档：https://platform.xiaomimimo.com/docs/zh-CN/api/chat/openai-api

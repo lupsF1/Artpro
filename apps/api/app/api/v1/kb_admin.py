@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 
 from fastapi import APIRouter, File, Form, Query, UploadFile, status
@@ -101,6 +102,67 @@ async def kb_list(
     ]
     meta = PaginationMeta(page=page, page_size=pageSize, total=total)
     return ok({"items": items, "meta": meta.model_dump(mode="json", by_alias=True)})
+
+
+@router.get("/documents/{document_id}/chunks", response_model=None)
+async def kb_chunks(
+    document_id: uuid.UUID,
+    _: AdminUserDep,
+    db: SessionDep,
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(20, ge=1, le=100),
+) -> dict | JSONResponse:
+    d = await db.get(KbDocument, document_id)
+    if d is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=err(E_NOT_FOUND, "文档不存在"),
+        )
+    total = (
+        await db.execute(
+            select(func.count()).select_from(KbChunk).where(KbChunk.document_id == document_id)
+        )
+    ).scalar_one() or 0
+    off = (page - 1) * pageSize
+    res = await db.execute(
+        select(KbChunk)
+        .where(KbChunk.document_id == document_id)
+        .order_by(KbChunk.ordinal.asc())
+        .offset(off)
+        .limit(pageSize)
+    )
+    items = []
+    for ch in res.scalars().all():
+        meta: object | None = None
+        if ch.meta_json:
+            try:
+                meta = json.loads(ch.meta_json)
+            except json.JSONDecodeError:
+                meta = ch.meta_json
+        items.append(
+            {
+                "id": str(ch.id),
+                "ordinal": ch.ordinal,
+                "text": ch.text,
+                "meta": meta,
+                "textLength": len(ch.text),
+                "createdAt": ch.created_at.isoformat(),
+            }
+        )
+    meta = PaginationMeta(page=page, page_size=pageSize, total=total)
+    return ok(
+        {
+            "document": {
+                "id": str(d.id),
+                "title": d.title,
+                "status": d.status,
+                "reviewStatus": d.review_status,
+                "chunkCount": total,
+            },
+            "items": items,
+            "meta": meta.model_dump(mode="json", by_alias=True),
+        }
+    )
 
 
 @router.patch("/documents/{document_id}", response_model=None)

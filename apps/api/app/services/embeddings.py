@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -18,7 +18,11 @@ class EmbeddingUpstreamError(Exception):
     """上游错误。"""
 
 
-async def embed_texts(texts: list[str]) -> list[list[float]]:
+async def embed_texts(
+    texts: list[str],
+    *,
+    task: Literal["query", "document"] = "document",
+) -> list[list[float]]:
     if not texts:
         return []
     s = get_settings()
@@ -31,6 +35,7 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
     headers = {
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
+        "X-Embedding-Task": task,
     }
     payload: dict[str, Any] = {
         "model": model,

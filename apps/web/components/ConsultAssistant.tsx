@@ -2,12 +2,22 @@
 
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
-import {
-  consultAssistantStream,
-  type AssistantCitation,
-} from "@/lib/consultStream";
+import ReactMarkdown from "react-markdown";
+import rehypeSanitize from "rehype-sanitize";
+import remarkGfm from "remark-gfm";
+import { consultAssistantStream } from "@/lib/consultStream";
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
+
+function AssistantMarkdown({ content }: { content: string }) {
+  return (
+    <div className="prose prose-stone max-w-none text-sm leading-relaxed prose-headings:mb-1.5 prose-headings:mt-3 prose-headings:font-serif prose-headings:font-semibold prose-h1:text-base prose-h2:text-[15px] prose-h3:text-sm prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-strong:text-stone-800">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+        {content || ""}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 export function ConsultAssistant() {
   const [open, setOpen] = useState(false);
@@ -15,7 +25,6 @@ export function ConsultAssistant() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastCitations, setLastCitations] = useState<AssistantCitation[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
 
   const scrollToEnd = useCallback(() => {
@@ -26,7 +35,6 @@ export function ConsultAssistant() {
     const text = input.trim();
     if (!text || streaming) return;
     setError(null);
-    setLastCitations([]);
     const nextHistory: ChatMsg[] = [...messages, { role: "user", content: text }];
     setMessages(nextHistory);
     setInput("");
@@ -54,9 +62,7 @@ export function ConsultAssistant() {
             });
             scrollToEnd();
           },
-          onDone: (cites) => {
-            setLastCitations(cites);
-          },
+          onDone: () => {},
         },
       );
     } catch (e) {
@@ -110,29 +116,23 @@ export function ConsultAssistant() {
                   className={
                     m.role === "user"
                       ? "ml-6 rounded-xl bg-stone-200/60 px-3 py-2 text-sm text-stone-800"
-                      : "mr-4 rounded-xl border border-stone-200/70 bg-white/70 px-3 py-2 text-sm leading-relaxed text-stone-700 whitespace-pre-wrap"
+                      : "mr-4 rounded-xl border border-stone-200/70 bg-white/70 px-3 py-2 text-stone-700"
                   }
                 >
-                  {m.content || (streaming && m.role === "assistant" ? "…" : "")}
+                  {m.role === "assistant" ? (
+                    m.content ? (
+                      <AssistantMarkdown content={m.content} />
+                    ) : streaming ? (
+                      <span className="text-sm text-stone-500">…</span>
+                    ) : null
+                  ) : (
+                    m.content
+                  )}
                 </div>
               ))
             )}
             <div ref={endRef} />
           </div>
-          {lastCitations.length > 0 ? (
-            <div className="border-t border-stone-200/50 px-3 py-2">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">
-                参考知识库
-              </p>
-              <ul className="mt-1 max-h-20 space-y-1 overflow-y-auto text-[11px] text-stone-600">
-                {lastCitations.map((c) => (
-                  <li key={c.chunkId} className="truncate" title={c.preview}>
-                    《{c.documentTitle}》
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
           {error ? (
             <p className="border-t border-red-200/50 bg-red-50/80 px-3 py-2 text-xs text-red-800">
               {error}

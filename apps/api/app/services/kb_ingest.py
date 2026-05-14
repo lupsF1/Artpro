@@ -6,6 +6,7 @@ import json
 import re
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 from docx import Document
 from pypdf import PdfReader
@@ -17,6 +18,11 @@ from app.services.embeddings import embed_texts
 from app.services.kb_chunking import chunk_text, chunk_text_with_page_bounds
 
 _API_ROOT = Path(__file__).resolve().parents[2]
+_SECTION_RE = re.compile(r"^[一二三四五六七八九十]+[、.．]\s*.+")
+_SUBSECTION_RE = re.compile(r"^（[一二三四五六七八九十]+）\s*.+")
+_DIRECTION_RE = re.compile(r"^(?:研究方向[:：]\s*)?\d{2}[\u4e00-\u9fffA-Za-z].*")
+_SUBJECT_RE = re.compile(r"^\d{3,4}[\u4e00-\u9fffA-Za-z].*")
+_OUTLINE_RE = re.compile(r"^《[^》]+》考试大纲$")
 
 
 def _safe_filename(name: str, max_len: int = 180) -> str:
@@ -34,7 +40,197 @@ def _parse_pdf(raw: bytes) -> list[tuple[str, dict]]:
         except Exception:
             t = ""
         page_texts.append(t)
+    outline_lines: list[str] = []
+    for page_text in page_texts:
+        outline_lines.extend([line.strip() for line in page_text.splitlines() if line.strip()])
+    outline_pairs = _parse_exam_outline_lines(outline_lines, source="pdf")
+    if outline_pairs:
+        return outline_pairs
     return chunk_text_with_page_bounds(page_texts)
+
+
+def _approx_tokens(text: str) -> int:
+    cjk = len(re.findall(r"[\u4e00-\u9fff]", text))
+    latin_words = len(re.findall(r"[A-Za-z0-9]+", text))
+    punctuation = len(re.findall(r"[^\s\w\u4e00-\u9fff]", text))
+    return cjk + latin_words + max(1, punctuation // 3)
+
+
+def _breadcrumb_meta(state: dict[str, Any], *, source: str, block_type: str) -> dict[str, Any]:
+    directions = list(state.get("researchDirections") or [])
+    subjects = list(state.get("examSubjects") or [])
+    return {
+        "source": source,
+        "blockType": block_type,
+        "degreeType": state.get("degreeType"),
+        "researchDirections": directions,
+        "examSubjects": subjects,
+        "outlineName": state.get("outlineName"),
+        "sectionTitle": state.get("sectionTitle"),
+        "subsectionTitle": state.get("subsectionTitle"),
+        "breadcrumb": {
+            "degreeType": state.get("degreeType"),
+            "researchDirections": directions,
+            "examSubjects": subjects,
+            "outlineName": state.get("outlineName"),
+            "sectionTitle": state.get("sectionTitle"),
+            "subsectionTitle": state.get("subsectionTitle"),
+        },
+    }
+
+
+def _split_outline_block(
+    lines: list[str],
+    meta: dict[str, Any],
+    *,
+    min_tokens: int = 300,
+    max_tokens: int = 800,
+    overlap_ratio: float = 0.1,
+) -> list[tuple[str, dict]]:
+    text = "\n".join(lines).strip()
+    if not text:
+        return []
+    if _approx_tokens(text) <= max_tokens:
+        return [(text, {**meta, "partIndex": 0, "tokenApprox": _approx_tokens(text)})]
+
+    chunks: list[tuple[str, dict]] = []
+    current: list[str] = []
+    current_tokens = 0
+    overlap_tokens = max(1, int(max_tokens * overlap_ratio))
+
+    def flush() -> None:
+        nonlocal current, current_tokens
+        if not current:
+            return
+        chunk_text_value = "\n".join(current).strip()
+        if chunk_text_value:
+            chunks.append(
+                (
+                    chunk_text_value,
+                    {
+                        **meta,
+                        "partIndex": len(chunks),
+                        "tokenApprox": _approx_tokens(chunk_text_value),
+                        "overlapRatio": overlap_ratio,
+                    },
+                )
+            )
+        overlap: list[str] = []
+        total = 0
+        for line in reversed(current):
+            line_tokens = _approx_tokens(line)
+            if overlap and total + line_tokens > overlap_tokens:
+                break
+            overlap.insert(0, line)
+            total += line_tokens
+        current = overlap
+        current_tokens = total
+
+    for line in lines:
+        line_tokens = _approx_tokens(line)
+        if current and current_tokens + line_tokens > max_tokens:
+            flush()
+        current.append(line)
+        current_tokens += line_tokens
+        if current_tokens >= min_tokens and current_tokens >= max_tokens * 0.8:
+            flush()
+    if current:
+        chunk_text_value = "\n".join(current).strip()
+        if not chunks or chunk_text_value != chunks[-1][0]:
+            chunks.append(
+                (
+                    chunk_text_value,
+                    {
+                        **meta,
+                        "partIndex": len(chunks),
+                        "tokenApprox": _approx_tokens(chunk_text_value),
+                        "overlapRatio": overlap_ratio,
+                    },
+                )
+            )
+    return chunks
+
+
+def _parse_exam_outline_lines(lines: list[str], *, source: str) -> list[tuple[str, dict]]:
+    state: dict[str, Any] = {
+        "degreeType": None,
+        "researchDirections": [],
+        "examSubjects": [],
+        "outlineName": None,
+        "sectionTitle": None,
+        "subsectionTitle": None,
+    }
+    out: list[tuple[str, dict]] = []
+    current_lines: list[str] = []
+    current_meta: dict[str, Any] | None = None
+    saw_outline_marker = False
+
+    def flush() -> None:
+        nonlocal current_lines, current_meta
+        if current_meta and current_lines:
+            out.extend(_split_outline_block(current_lines, current_meta))
+        current_lines = []
+        current_meta = None
+
+    for raw in lines:
+        line = " ".join((raw or "").split())
+        if not line:
+            continue
+
+        if line in {"学术学位", "专业学位"} or line.endswith("学位"):
+            state["degreeType"] = line
+            saw_outline_marker = True
+
+        if line.startswith("研究方向"):
+            value = line.split("：", 1)[-1].split(":", 1)[-1].strip()
+            if value:
+                state["researchDirections"].append(value)
+            saw_outline_marker = True
+        elif _DIRECTION_RE.match(line) and state.get("degreeType") and not state.get("examSubjects"):
+            state["researchDirections"].append(line)
+            saw_outline_marker = True
+
+        if line.startswith("考试科目"):
+            value = line.split("：", 1)[-1].split(":", 1)[-1].strip()
+            if value:
+                state["examSubjects"].append(value)
+            saw_outline_marker = True
+        elif _SUBJECT_RE.match(line) and state.get("examSubjects") is not None and state.get("researchDirections"):
+            state["examSubjects"].append(line)
+            saw_outline_marker = True
+
+        if _OUTLINE_RE.match(line):
+            flush()
+            state["outlineName"] = line
+            state["sectionTitle"] = None
+            state["subsectionTitle"] = None
+            saw_outline_marker = True
+            continue
+
+        if _SECTION_RE.match(line):
+            flush()
+            state["sectionTitle"] = line
+            state["subsectionTitle"] = None
+            saw_outline_marker = True
+            current_meta = _breadcrumb_meta(state, source=source, block_type="section")
+            current_lines = [line]
+            continue
+
+        if _SUBSECTION_RE.match(line):
+            if current_meta and current_lines != [state.get("sectionTitle")]:
+                flush()
+            state["subsectionTitle"] = line
+            current_meta = _breadcrumb_meta(state, source=source, block_type="subsection")
+            if not current_lines and state.get("sectionTitle"):
+                current_lines = [str(state["sectionTitle"])]
+            saw_outline_marker = True
+
+        if current_meta is None:
+            continue
+        current_lines.append(line)
+
+    flush()
+    return out if saw_outline_marker and out else []
 
 
 def _parse_docx(raw: bytes) -> list[tuple[str, dict]]:
@@ -44,6 +240,9 @@ def _parse_docx(raw: bytes) -> list[tuple[str, dict]]:
         t = (p.text or "").strip()
         if t:
             paras.append(t)
+    outline_pairs = _parse_exam_outline_lines(paras, source="docx")
+    if outline_pairs:
+        return outline_pairs
     text = "\n\n".join(paras)
     pairs = chunk_text(text)
     return [(c, {**m, "source": "docx"}) for c, m in pairs]
