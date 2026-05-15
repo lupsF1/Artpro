@@ -21,7 +21,7 @@ _API_ROOT = Path(__file__).resolve().parents[2]
 _SECTION_RE = re.compile(r"^[一二三四五六七八九十]+[、.．]\s*.+")
 _SUBSECTION_RE = re.compile(r"^（[一二三四五六七八九十]+）\s*.+")
 _DIRECTION_RE = re.compile(r"^(?:研究方向[:：]\s*)?\d{2}[\u4e00-\u9fffA-Za-z].*")
-_SUBJECT_RE = re.compile(r"^\d{3,4}[\u4e00-\u9fffA-Za-z].*")
+_SUBJECT_RE = re.compile(r"^\d{3,4}\s*[\u4e00-\u9fffA-Za-z].*")
 _OUTLINE_RE = re.compile(r"^《[^》]+》考试大纲$")
 
 
