@@ -196,6 +196,8 @@ def _parse_exam_outline_lines(lines: list[str], *, source: str) -> list[tuple[st
 
         if line in {"学术学位", "专业学位"} or line.endswith("学位"):
             state["degreeType"] = line
+            state["researchDirections"] = []
+            state["examSubjects"] = []
             saw_outline_marker = True
 
         if line.startswith("研究方向"):
