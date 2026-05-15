@@ -115,5 +115,26 @@ async def run_eval(test_cases: list[TestCase] | None = None) -> None:
             print(f"  [{tc.category}] {tc.query}")
 
 
+def load_test_cases_from_file(path: str) -> list[TestCase]:
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    if not isinstance(data, list):
+        raise ValueError(f"expected JSON array, got {type(data)}")
+    cases = []
+    for item in data:
+        if isinstance(item, dict) and "query" in item and "expect_keywords" in item:
+            cases.append(TestCase(
+                query=item["query"],
+                expect_keywords=list(item["expect_keywords"]),
+                category=item.get("category", "auto"),
+            ))
+    return cases
+
+
 if __name__ == "__main__":
-    asyncio.run(run_eval())
+    import sys
+    if len(sys.argv) > 1:
+        cases = load_test_cases_from_file(sys.argv[1])
+        asyncio.run(run_eval(cases))
+    else:
+        asyncio.run(run_eval())
