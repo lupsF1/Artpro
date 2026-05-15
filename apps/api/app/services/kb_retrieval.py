@@ -125,8 +125,9 @@ def infer_query_metadata_filter(query: str) -> QueryMetadataFilter:
         if term in q:
             section_terms.append(term)
 
+    _SPLIT_RE = re.compile(r"(?:考试|内容|要求|是什么|有哪些|考什么|怎么|哪些|什么|的|吗|呢)")
     subject_terms = [
-        re.split(r"(?:考试|内容|要求|是什么|有哪些|方向)", term, maxsplit=1)[0]
+        _SPLIT_RE.split(term, maxsplit=1)[0]
         for term in _SUBJECT_RE.findall(q)
     ]
     if not subject_terms:
@@ -139,7 +140,7 @@ def infer_query_metadata_filter(query: str) -> QueryMetadataFilter:
                 subject_terms.append(term)
 
     direction_terms = [
-        re.split(r"(?:考试|内容|要求|是什么|有哪些|方向)", term, maxsplit=1)[0]
+        _SPLIT_RE.split(term, maxsplit=1)[0]
         for term in _DIRECTION_RE.findall(q)
     ]
     for term in ("艺术管理", "艺术遗产"):
@@ -158,12 +159,13 @@ def infer_query_metadata_filter(query: str) -> QueryMetadataFilter:
 def _matches_terms(haystack: str, terms: list[str] | None) -> bool:
     if not terms:
         return True
-    return any(term and term in haystack for term in terms)
+    haystack_no_space = haystack.replace(" ", "")
+    return any(term and (term in haystack or term in haystack_no_space) for term in terms)
 
 
-def _matches_metadata_filter(candidate: Candidate, filters: QueryMetadataFilter) -> bool:
+def _metadata_bonus_score(candidate: Candidate, filters: QueryMetadataFilter) -> float:
     if not filters.has_filters():
-        return True
+        return 0.0
     meta = candidate.meta
     haystack = "\n".join([candidate.document.title or "", candidate.chunk.text or "", _as_text(meta)])
     research_text = _as_text(meta.get("researchDirections")) or haystack
@@ -176,16 +178,31 @@ def _matches_metadata_filter(candidate: Candidate, filters: QueryMetadataFilter)
             candidate.chunk.text or "",
         ]
     )
-    if filters.degree_type and filters.degree_type not in haystack:
-        return False
-    return all(
-        [
-            _matches_terms(research_text, filters.research_direction_terms),
-            _matches_terms(subject_text, filters.exam_subject_terms),
-            _matches_terms(outline_text, filters.outline_terms),
-            _matches_terms(section_text, filters.section_terms),
-        ]
-    )
+    matched = 0
+    total = 0
+    if filters.degree_type:
+        total += 1
+        if filters.degree_type in haystack:
+            matched += 1
+    if filters.research_direction_terms:
+        total += 1
+        if _matches_terms(research_text, filters.research_direction_terms):
+            matched += 1
+    if filters.exam_subject_terms:
+        total += 1
+        if _matches_terms(subject_text, filters.exam_subject_terms):
+            matched += 1
+    if filters.outline_terms:
+        total += 1
+        if _matches_terms(outline_text, filters.outline_terms):
+            matched += 1
+    if filters.section_terms:
+        total += 1
+        if _matches_terms(section_text, filters.section_terms):
+            matched += 1
+    if total > 0:
+        return 0.15 * (matched / total)
+    return 0.0
 
 
 async def _load_search_corpus(db: AsyncSession) -> list[Candidate]:
@@ -332,7 +349,11 @@ async def _external_rerank_candidates(
     return out or None
 
 
-async def _rerank_candidates(query: str, candidates: list[Candidate]) -> list[Candidate]:
+async def _rerank_candidates(
+    query: str,
+    candidates: list[Candidate],
+    filters: QueryMetadataFilter | None = None,
+) -> list[Candidate]:
     external = await _external_rerank_candidates(query, candidates)
     if external is not None:
         return external
@@ -340,10 +361,12 @@ async def _rerank_candidates(query: str, candidates: list[Candidate]) -> list[Ca
     bm25_norm = _normalize_scores(candidates, "bm25_score")
     for item in candidates:
         cross = _cross_feature_score(query, item)
+        meta_bonus = _metadata_bonus_score(item, filters) if filters else 0.0
         item.final_score = (
             0.45 * dense_norm[item.chunk.id]
             + 0.35 * bm25_norm[item.chunk.id]
             + 0.20 * cross
+            + meta_bonus
         )
     candidates.sort(key=lambda x: x.final_score, reverse=True)
     return candidates
@@ -364,10 +387,9 @@ async def retrieve_snippets(
         asyncio.to_thread(_bm25_recall, q, corpus, settings.rag_bm25_top_k),
     )
     merged = _merge_candidates(dense_hits, bm25_hits)
-    candidates = [c for c in merged if _matches_metadata_filter(c, filters)] if filters.has_filters() else merged
-    if not candidates:
+    if not merged:
         return []
-    reranked = await _rerank_candidates(q, candidates)
+    reranked = await _rerank_candidates(q, merged, filters)
     top = reranked[: settings.rag_top_k]
 
     out: list[RetrievedSnippet] = []
@@ -386,7 +408,7 @@ async def retrieve_snippets(
                         "denseScore": round(float(item.dense_score), 4),
                         "bm25Score": round(float(item.bm25_score), 4),
                         "finalScore": round(float(score), 4),
-                        "metadataFilterApplied": filters.has_filters(),
+                        "metadataBonusApplied": filters.has_filters(),
                     },
                 },
             )

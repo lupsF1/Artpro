@@ -6,7 +6,7 @@ import uuid
 from app.models import KbChunk, KbDocument
 from app.services.kb_retrieval import (
     _bm25_recall,
-    _matches_metadata_filter,
+    _metadata_bonus_score,
     Candidate,
     infer_query_metadata_filter,
 )
@@ -40,7 +40,7 @@ def test_infer_query_metadata_filter_from_exam_query() -> None:
     assert "考试内容" in (filters.section_terms or [])
 
 
-def test_metadata_filter_matches_breadcrumbs() -> None:
+def test_metadata_bonus_scores_breadcrumbs() -> None:
     filters = infer_query_metadata_filter("艺术管理方向781艺术理论考试内容")
     candidate = _candidate(
         "三、考试内容\n（一）艺术活动的构成及其基本特征",
@@ -53,7 +53,8 @@ def test_metadata_filter_matches_breadcrumbs() -> None:
         },
     )
 
-    assert _matches_metadata_filter(candidate, filters)
+    bonus = _metadata_bonus_score(candidate, filters)
+    assert bonus > 0
 
 
 def test_bm25_recall_uses_text_title_and_metadata() -> None:

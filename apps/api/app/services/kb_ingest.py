@@ -151,6 +151,21 @@ def _split_outline_block(
     return chunks
 
 
+def _build_meta_prefix(state: dict[str, Any]) -> str:
+    parts: list[str] = []
+    if state.get("degreeType"):
+        parts.append(state["degreeType"])
+    dirs = state.get("researchDirections") or []
+    if dirs:
+        parts.append("研究方向：" + " ".join(dirs))
+    subs = state.get("examSubjects") or []
+    if subs:
+        parts.append("考试科目：" + " ".join(subs))
+    if state.get("outlineName"):
+        parts.append(state["outlineName"])
+    return " ".join(parts)
+
+
 def _parse_exam_outline_lines(lines: list[str], *, source: str) -> list[tuple[str, dict]]:
     state: dict[str, Any] = {
         "degreeType": None,
@@ -168,7 +183,9 @@ def _parse_exam_outline_lines(lines: list[str], *, source: str) -> list[tuple[st
     def flush() -> None:
         nonlocal current_lines, current_meta
         if current_meta and current_lines:
-            out.extend(_split_outline_block(current_lines, current_meta))
+            prefix = _build_meta_prefix(state)
+            lines_with_meta = ([prefix] + current_lines) if prefix else current_lines
+            out.extend(_split_outline_block(lines_with_meta, current_meta))
         current_lines = []
         current_meta = None
 
@@ -208,21 +225,21 @@ def _parse_exam_outline_lines(lines: list[str], *, source: str) -> list[tuple[st
             continue
 
         if _SECTION_RE.match(line):
-            flush()
-            state["sectionTitle"] = line
-            state["subsectionTitle"] = None
-            saw_outline_marker = True
-            current_meta = _breadcrumb_meta(state, source=source, block_type="section")
-            current_lines = [line]
-            continue
+            if current_meta is None:
+                # Starting a new top-level section
+                state["sectionTitle"] = line
+                state["subsectionTitle"] = None
+                saw_outline_marker = True
+                current_meta = _breadcrumb_meta(state, source=source, block_type="section")
+                current_lines = [line]
+                continue
+            else:
+                # Already inside a section - treat as subsection content
+                state["subsectionTitle"] = line
+                saw_outline_marker = True
 
         if _SUBSECTION_RE.match(line):
-            if current_meta and current_lines != [state.get("sectionTitle")]:
-                flush()
             state["subsectionTitle"] = line
-            current_meta = _breadcrumb_meta(state, source=source, block_type="subsection")
-            if not current_lines and state.get("sectionTitle"):
-                current_lines = [str(state["sectionTitle"])]
             saw_outline_marker = True
 
         if current_meta is None:
